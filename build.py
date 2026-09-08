@@ -81,12 +81,22 @@ def extract_mermaid(text: str) -> tuple[str, bool]:
     return _MERMAID_FENCE.sub(repl, text), found
 
 
+def github_slugify(value: str, separator: str) -> str:
+    """GitHub's heading-anchor algorithm: lowercase, drop punctuation (keeping alnum, spaces,
+    hyphens), then space -> '-'. Unlike python-markdown's default it does NOT collapse runs, so
+    'Worker — Options & More' -> 'worker--options--more' — matching the anchors GitHub generates,
+    which keeps cross-references written for the repo working verbatim on the site."""
+    value = re.sub(r"[^\w\- ]", "", value.lower(), flags=re.UNICODE)
+    return value.replace(" ", separator)
+
+
 def md_engine() -> markdown.Markdown:
     return markdown.Markdown(extensions=[
         "fenced_code", "codehilite", "tables", "toc", "attr_list", "md_in_html", "sane_lists",
     ], extension_configs={
         "codehilite": {"guess_lang": False, "css_class": "codehilite"},
-        "toc": {"permalink": "§", "permalink_title": "link to this section"},
+        "toc": {"permalink": "§", "permalink_title": "link to this section",
+                "slugify": github_slugify},
     })
 
 
