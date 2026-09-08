@@ -79,9 +79,9 @@ section .lead strong { color: var(--text); }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 @media (max-width: 880px) { .grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 13px; padding: 20px 20px 18px; }
-.card h3 { font-size: 16px; margin-bottom: 8px; }
-.card p { font-size: 14.2px; color: var(--muted); }
+.card { display: block; height: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 13px; padding: 20px 20px 18px; }
+.card h3, .card .ct { display: block; font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.card p, .card .cd { display: block; font-size: 14.2px; color: var(--muted); }
 .card p code { font-size: 12.6px; color: var(--text); background: var(--bg2); padding: 1px 5px; border-radius: 5px; }
 a.cardlink { display: block; color: inherit; }
 a.cardlink:hover { text-decoration: none; }
