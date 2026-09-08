@@ -109,8 +109,11 @@ def rewrite_links(text: str, section: str) -> str:
         name = Path(path).stem
         if name in vendored and "/" not in path.strip("./"):
             return f"](/docs/{name}/{frag})"
+        # a ../-prefixed path escapes docs/ (repo root); only bare names live under docs/
+        escaped_docs = path.startswith("../")
         clean = re.sub(r"^(\.\./)+", "", path)
-        return f"]({GITHUB}/blob/main/{'docs/' if '/' not in clean else ''}{clean}{frag})"
+        prefix = "" if (escaped_docs or "/" in clean) else "docs/"
+        return f"]({GITHUB}/blob/main/{prefix}{clean}{frag})"
 
     text = _REPO_DOC.sub(repl, text)
     # non-doc repo files (java sources, README) linked with ../
