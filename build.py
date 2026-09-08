@@ -150,10 +150,10 @@ def build_page(tpl: Template, name: str, title: str, active: str = "") -> None:
 
 
 def pygments_css() -> str:
-    light = HtmlFormatter(style="default").get_style_defs(".codehilite")
+    # The site chrome is light but code blocks keep a dark terminal look everywhere,
+    # so one dark highlight theme serves regardless of the visitor's system theme.
     dark = HtmlFormatter(style="one-dark").get_style_defs(".codehilite")
-    return (f"{light}\n@media (prefers-color-scheme: dark) {{\n{dark}\n"
-            ".codehilite { background: var(--code-bg); }\n}\n")
+    return f"{dark}\n.codehilite {{ background: var(--code-bg); }}\n"
 
 
 def main() -> None:
