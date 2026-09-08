@@ -150,6 +150,11 @@ td { color: var(--muted); }
 .codehilite pre { margin: 0; }
 .doc table, .prose table { display: block; overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; margin: 16px 0; }
 .doc img, .prose img { border-radius: 10px; border: 1px solid var(--border); margin: 10px 0; }
+/* mermaid diagrams: rendered client-side into these pres — light panel, not the dark code look */
+.doc pre.mermaid, .prose pre.mermaid { background: var(--panel); border: 1px solid var(--border);
+  color: var(--text); text-align: center; padding: 20px; overflow-x: auto; }
+pre.mermaid svg { max-width: 100%; height: auto; }
+
 .headerlink { opacity: 0; margin-left: 8px; font-size: .8em; color: var(--muted); }
 h1:hover .headerlink, h2:hover .headerlink, h3:hover .headerlink, h4:hover .headerlink { opacity: 1; }
 

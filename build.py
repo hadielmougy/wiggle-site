@@ -58,6 +58,28 @@ TOP_NAV = [  # (href, label) for the header
 # docs that exist in the wiggle repo but are not vendored on the site
 _REPO_DOC = re.compile(r"\]\((?!https?://|#|/)([\w./-]+?\.md)(#[\w-]+)?\)")
 
+_MERMAID_FENCE = re.compile(r"```mermaid\n(.*?)```", re.S)
+
+# loaded only on pages that contain a diagram; mermaid.min.js is vendored (no CDN)
+MERMAID_SNIPPET = ('<script src="/assets/js/mermaid.min.js"></script>\n'
+                   '<script>mermaid.initialize({startOnLoad:true,theme:"neutral",'
+                   'flowchart:{useMaxWidth:true}});</script>')
+
+
+def extract_mermaid(text: str) -> tuple[str, bool]:
+    """Turn ```mermaid fences into raw <pre class="mermaid"> blocks (markdown passes block-level
+    raw HTML through untouched), so mermaid.js renders them client-side instead of the code
+    highlighter printing the source."""
+    found = False
+
+    def repl(m: re.Match) -> str:
+        nonlocal found
+        found = True
+        code = m.group(1).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        return f'<pre class="mermaid">\n{code}</pre>'
+
+    return _MERMAID_FENCE.sub(repl, text), found
+
 
 def md_engine() -> markdown.Markdown:
     return markdown.Markdown(extensions=[
@@ -132,8 +154,11 @@ def build_section(tpl: Template, section: str, nav: list[tuple[str, str]]) -> No
         if not src.exists():
             raise SystemExit(f"missing {src}")
         raw = rewrite_links(src.read_text(encoding="utf-8"), section)
+        raw, has_mermaid = extract_mermaid(raw)
         engine.reset()
         html = engine.convert(raw)
+        if has_mermaid:
+            html += "\n" + MERMAID_SNIPPET
         path = f"/{section}/" if slug == "index" else f"/{section}/{slug}/"
         emit(path, page(tpl, title=f"{title} · Wiggle", description=first_paragraph(raw),
                         content=html, active=section, path=path,
@@ -144,7 +169,9 @@ def build_page(tpl: Template, name: str, title: str, active: str = "") -> None:
     """A standalone markdown page (content/<name>.md) rendered full-width in a prose column."""
     engine = md_engine()
     raw = rewrite_links((CONTENT / f"{name}.md").read_text(encoding="utf-8"), "")
-    html = f'<div class="wrap prose">{engine.convert(raw)}</div>'
+    raw, has_mermaid = extract_mermaid(raw)
+    body = engine.convert(raw) + ("\n" + MERMAID_SNIPPET if has_mermaid else "")
+    html = f'<div class="wrap prose">{body}</div>'
     emit(f"/{name}/", page(tpl, title=f"{title} · Wiggle", description=first_paragraph(raw),
                            content=html, active=active or name, path=f"/{name}/"))
 
