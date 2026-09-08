@@ -1,0 +1,196 @@
+<header class="hero"><div class="wrap">
+  <h1>Durable workflows,<br><span class="grad">cellular by design.</span></h1>
+  <p class="sub">Describe a process as a graph. Wiggle runs it as a <strong>durable state machine</strong>
+  that survives crashes, waits for humans, retries failures — and <strong>shards itself across isolated
+  cells</strong> when one database is no longer enough.</p>
+  <div class="cta">
+    <a class="btn primary" href="/docs/">Get started</a>
+    <a class="btn ghost" href="https://github.com/hadielmougy/wiggle">Star on GitHub</a>
+  </div>
+  <div class="badges">
+    <span class="badge"><b>Apache-2.0</b></span>
+    <span class="badge">Java <b>21+</b></span>
+    <span class="badge">clients: <b>Java · Go · Python</b></span>
+    <span class="badge">Maven Central <b>io.github.hadielmougy</b></span>
+  </div>
+
+  <div class="codecard">
+    <div class="bar"><i></i><i></i><i></i><span>OrderWorkflow.java</span></div>
+<pre><span class="t">Blueprint</span> orders = <span class="t">Workflow</span>.<span class="f">define</span>(<span class="s">"order-fulfilment"</span>)
+        .<span class="f">step</span>(<span class="s">"validate"</span>)
+        .<span class="f">gate</span>(<span class="s">"in-stock"</span>)
+        .<span class="f">fork</span>(<span class="t">Branch</span>.<span class="f">of</span>(<span class="s">"payment"</span>,  s -&gt; s.<span class="f">step</span>(<span class="s">"authorise"</span>).<span class="f">step</span>(<span class="s">"capture"</span>)),
+              <span class="t">Branch</span>.<span class="f">of</span>(<span class="s">"shipping"</span>, s -&gt; s.<span class="f">step</span>(<span class="s">"reserve-stock"</span>).<span class="f">step</span>(<span class="s">"print-label"</span>)))
+        .<span class="f">combine</span>(<span class="s">"merge"</span>)
+        .<span class="f">step</span>(<span class="s">"notify"</span>)
+        .<span class="f">build</span>();</pre>
+  </div>
+  <p class="after">That's a <strong>complete, durable, parallel workflow</strong>. No YAML, no replay,
+  no determinism rules to memorize — a compiled graph the server owns, and plain Java (or Go, or Python)
+  methods that serve its steps.</p>
+</div></header>
+
+<section id="why"><div class="wrap">
+  <h2>Why teams pick it</h2>
+  <p class="lead">Durable execution without the replay tax, and a sharding model that treats
+  <strong>isolation as a first-class deployment primitive</strong> — not an afterthought.
+  <a href="/why/">The full argument →</a></p>
+  <div class="grid">
+    <div class="card"><h3>🧫 Cellular by design</h3>
+      <p>A namespace is a <em>cell</em>: its own database, its own cluster. A Raft coordinator places
+      instances by consistent hashing over <em>epochs</em>; the instance id carries its own routing
+      (<code>orders.e0.s3.01J…</code>). Grow by adding cells; resharding never migrates data.</p></div>
+    <div class="card"><h3>💾 Durable, honestly</h3>
+      <p>Every instance is DB-backed rows, not a call stack. Exactly-once dispatch, at-least-once
+      execution, lease-based recovery when a worker dies mid-step.</p></div>
+    <div class="card"><h3>🧭 State machine, not glue code</h3>
+      <p><code>step</code>, <code>gate</code>, <code>fork</code>, <code>choose</code>, timers, signals,
+      sub-workflows, <code>doWhile</code>, <code>forEach</code> — a compiled graph, versioned by content
+      hash. The workflow is <em>data</em>, not replayed code, so there is no determinism contract to get wrong.</p></div>
+    <div class="card"><h3>🔌 Pull-based &amp; polyglot</h3>
+      <p>Workers long-poll over gRPC: no inbound connectivity, no broker, backpressure built in.
+      Java, Go, and Python workers interoperate on one server — one instance, three languages.</p></div>
+    <div class="card"><h3>🪶 Lightweight &amp; embeddable</h3>
+      <p>One JAR plus a database (PostgreSQL, MySQL, Oracle, SQL Server — or in-memory for dev).
+      Embed the server in your JVM for tests. The coordinator is opt-in. No Elasticsearch, no sidecar
+      mesh, no mandatory Kubernetes.</p></div>
+    <div class="card"><h3>🖥 Operable from day one</h3>
+      <p>A web ops console with a live trace of every instance over the workflow diagram — cancel,
+      deliver signals, schedules, search by instance or correlation id. A CLI for the control plane.
+      Health probes and queue-lag monitoring built in.</p></div>
+  </div>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <h2>How it works</h2>
+  <p class="lead"><strong>Topology and logic are separate.</strong> The graph is pure structure; handlers
+  are plain methods matched by name. A method's <em>signature</em> defines its step kind — a
+  <code>boolean</code> return is a gate, <code>void</code> is an effect, anything else is a task whose
+  return <em>replaces</em> the context. Nothing merges implicitly, ever.</p>
+  <div class="duo">
+    <div>
+      <div class="codecard"><div class="bar"><i></i><i></i><i></i><span>topology — what happens, in what order</span></div>
+<pre><span class="t">Blueprint</span> orders = <span class="t">Workflow</span>.<span class="f">define</span>(<span class="s">"order-fulfilment"</span>)
+    .<span class="f">step</span>(<span class="s">"validate"</span>)
+    .<span class="f">gate</span>(<span class="s">"in-stock"</span>)      <span class="c">// false ⇒ ends cleanly</span>
+    .<span class="f">fork</span>(
+        <span class="t">Branch</span>.<span class="f">of</span>(<span class="s">"payment"</span>, s -&gt; s
+            .<span class="f">step</span>(<span class="s">"authorise"</span>,
+                  <span class="t">RetryPolicy</span>.<span class="f">exponential</span>(<span class="n">5</span>, ofMillis(<span class="n">100</span>)))
+            .<span class="f">step</span>(<span class="s">"capture"</span>)),
+        <span class="t">Branch</span>.<span class="f">of</span>(<span class="s">"shipping"</span>, s -&gt; s
+            .<span class="f">step</span>(<span class="s">"reserve-stock"</span>)
+            .<span class="f">sleep</span>(<span class="s">"await-warehouse"</span>, ofMillis(<span class="n">300</span>))
+            .<span class="f">step</span>(<span class="s">"print-label"</span>)))
+    .<span class="f">combine</span>(<span class="s">"merge"</span>)       <span class="c">// isolated branches rejoin HERE</span>
+    .<span class="f">step</span>(<span class="s">"notify"</span>)
+    .<span class="f">build</span>();</pre></div>
+      <p class="stepnote"><b>Branches run on isolated context copies</b> — siblings can't see each
+      other's writes. The only way back to shared state is the explicit combine.</p>
+    </div>
+    <div>
+      <div class="codecard"><div class="bar"><i></i><i></i><i></i><span>logic — plain methods, matched by name</span></div>
+<pre><span class="k">@Handlers</span>(<span class="s">"order-fulfilment"</span>)
+<span class="k">class</span> <span class="t">OrderHandlers</span> {
+  <span class="t">Order</span>   <span class="f">validate</span>(<span class="t">Order</span> o)  { <span class="k">return</span> o.<span class="f">withStatus</span>(<span class="s">"VALIDATED"</span>); }
+  <span class="k">boolean</span> <span class="f">inStock</span>(<span class="t">Order</span> o)   { <span class="k">return</span> o.<span class="f">quantity</span>() &gt; <span class="n">0</span>; }
+  <span class="t">Order</span>   <span class="f">authorise</span>(<span class="t">Order</span> o) { <span class="k">return</span> o.<span class="f">withPaymentRef</span>(<span class="f">auth</span>(o)); }
+
+  <span class="c">// the combine is mandatory: fold the branches' results onto the</span>
+  <span class="c">// pre-fork base and return the COMPLETE post-join context</span>
+  <span class="t">Order</span> <span class="f">merge</span>(<span class="k">@Context</span> <span class="t">Order</span> base,
+              <span class="k">@Arm</span>(<span class="s">"payment"</span>)  <span class="t">Order</span> pay,
+              <span class="k">@Arm</span>(<span class="s">"shipping"</span>) <span class="t">Order</span> ship) {
+    <span class="k">return</span> base.<span class="f">withPaymentRef</span>(pay.<span class="f">paymentRef</span>())
+               .<span class="f">withShipmentRef</span>(ship.<span class="f">shipmentRef</span>());
+  }
+}</pre></div>
+      <p class="stepnote">Handlers can use clocks, randomness, any library — and be
+      <b>redeployed at will</b>. No replay means no history to stay compatible with.</p>
+    </div>
+  </div>
+  <p class="lead" style="margin-top:18px">These building blocks compose into the shapes real processes
+  take — <a href="/patterns/">browse the patterns</a>: approvals with deadlines, sagas, fan-out over
+  collections, cron jobs, cross-service orchestration.</p>
+</div></section>
+
+<section id="cellular"><div class="wrap">
+  <h2>Architecture</h2>
+  <p class="lead">Clients and pull-based workers speak gRPC to cells. Each cell is a complete
+  cluster with its own database; an optional <strong>Raft coordinator</strong> (embedded Ratis +
+  RocksDB — no external store) publishes shard→cell rings as <em>epochs</em>. New instances follow
+  the new ring; in-flight ones finish where they live — <strong>resharding never migrates data</strong>,
+  and any party can compute an instance's owning cell from its id alone.
+  <a href="/docs/sharding-and-epochs/">How placement works →</a></p>
+  <figure class="figure">
+    <img src="/assets/img/architecture.svg" alt="Wiggle architecture: clients and workers talk gRPC to cells; each namespace is a cell with its own cluster and database; a Raft coordinator places namespaces on cells by consistent hashing over epochs; an ops console and CLI operate everything.">
+  </figure>
+</div></section>
+
+<section id="performance"><div class="wrap">
+  <h2>Performance</h2>
+  <p class="lead">Honest numbers from honest hardware — everything below measured on
+  <strong>one MacBook Pro</strong> (M2 Pro, 10 cores). <a href="/performance/">Full methodology →</a></p>
+  <div class="stats">
+    <div class="stat"><div class="big">91.8k</div><div class="what">durable step completions/sec —
+      engine embedded in one JVM (11,478 instances/sec, batched local chaining)</div></div>
+    <div class="stat"><div class="big">~300/s</div><div class="what">workflow starts sustained with
+      sub-second end-to-end latency — real kind cluster, PostgreSQL-backed cells</div></div>
+    <div class="stat"><div class="big">5.4s</div><div class="what">start-availability gap when the
+      coordinator is SIGKILL-ed under load — state recovers exactly; running work never notices</div></div>
+  </div>
+  <figure class="figure">
+    <img src="/assets/img/bench-sojourn.svg" alt="Probe sojourn over time: at 300 starts/sec latency settles below one second; at 340 the backlog compounds. Ceiling ≈ 300–340 starts/sec on one laptop.">
+    <figcaption>Probe sojourn (start → COMPLETED) while ramping offered load: flat means the cluster
+    keeps up; monotonic growth means backlog is compounding. All components shared the same 10 cores —
+    a floor, not a ceiling.</figcaption>
+  </figure>
+</div></section>
+
+<section id="deploy"><div class="wrap">
+  <h2>Start embedded, end sharded</h2>
+  <p class="lead">One codebase, four postures — <strong>without rewriting your workflows</strong>.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Mode</th><th>What it is</th><th>When</th></tr>
+    <tr><td><b>Embedded</b></td><td><code>WiggleServer</code> inside your JVM, in-memory store</td><td>dev, tests, single-process apps</td></tr>
+    <tr><td><b>Standalone</b></td><td>one node, gRPC <code>:8080</code>, in-memory or a database</td><td>small services, first deploy</td></tr>
+    <tr><td><b>Cluster</b></td><td>several nodes on one database — shared queue, leader runs timers/recovery</td><td>production, HA</td></tr>
+    <tr><td><b>Cellular</b></td><td>many cells (each its own DB + cluster) behind a coordinator</td><td>multi-tenant isolation, scale-out</td></tr>
+  </table></div>
+
+  <div class="langs" style="margin-top:34px">
+    <div class="lang"><h3>☕ Java</h3><p>The reference client: DSL, <code>@Handlers</code>, embedded
+      server for tests. Maven Central.</p></div>
+    <div class="lang"><h3>🐹 Go</h3><p><a href="https://github.com/hadielmougy/wiggle-go">wiggle-go</a> —
+      idiomatic structs-and-interfaces workers, same wire protocol.</p></div>
+    <div class="lang"><h3>🐍 Python</h3><p><a href="https://github.com/hadielmougy/wiggle-python">wiggle-python</a> —
+      decorator-free handler classes, contextvars step scope.</p></div>
+  </div>
+</div></section>
+
+<section id="quickstart"><div class="wrap">
+  <h2>Quickstart</h2>
+  <p class="lead">The fastest end-to-end is one JVM: embedded server, one worker, one instance.</p>
+  <div class="duo">
+    <div class="codecard"><div class="bar"><i></i><i></i><i></i><span>build.gradle.kts</span></div>
+<pre><span class="f">implementation</span>(<span class="s">"io.github.hadielmougy:wiggle-client:2.1.8"</span>)
+<span class="f">implementation</span>(<span class="s">"io.github.hadielmougy:wiggle-server:2.1.8"</span>)  <span class="c">// embed for tests</span>
+<span class="f">implementation</span>(<span class="s">"io.github.hadielmougy:wiggle-postgres:2.1.8"</span>) <span class="c">// + your storage</span></pre></div>
+    <div class="codecard"><div class="bar"><i></i><i></i><i></i><span>or run the server as a container</span></div>
+<pre>docker run --rm -p <span class="n">8080</span>:<span class="n">8080</span> \
+  -e WIGGLE_JDBC_URL=jdbc:postgresql://db:<span class="n">5432</span>/wiggle \
+  -e WIGGLE_JDBC_USER=wiggle -e WIGGLE_JDBC_PASSWORD=wiggle \
+  hadielmougy/wiggle:<span class="n">2.1.8</span></pre></div>
+  </div>
+  <div class="codecard" style="max-width:none;margin-top:18px"><div class="bar"><i></i><i></i><i></i><span>hello, durable world</span></div>
+<pre><span class="k">try</span> (<span class="t">WiggleServer</span> server = <span class="k">new</span> <span class="t">WiggleServer</span>(<span class="t">ServerConfig</span>.<span class="f">fromEnvironment</span>()).<span class="f">start</span>();
+     <span class="t">WiggleClient</span> client = <span class="k">new</span> <span class="t">WiggleClient</span>(server.<span class="f">baseUrl</span>());
+     <span class="t">Worker</span> worker = <span class="k">new</span> <span class="t">Worker</span>(client, <span class="s">"worker-1"</span>).<span class="f">register</span>(greet).<span class="f">handlers</span>(<span class="k">new</span> <span class="t">GreetHandlers</span>())) {
+    worker.<span class="f">start</span>();
+    <span class="t">String</span> id = client.<span class="f">start</span>(greet, <span class="t">Map</span>.<span class="f">of</span>(<span class="s">"name"</span>, <span class="s">"ada"</span>));
+    <span class="t">InstanceView</span> result = client.<span class="f">awaitCompletion</span>(id, ofSeconds(<span class="n">10</span>));   <span class="c">// → COMPLETED</span>
+}</pre></div>
+  <p class="stepnote" style="margin-top:16px">Then: <a href="/docs/onboarding/">onboarding
+  + full configuration reference</a> · <a href="/docs/dsl-cookbook/">the DSL cookbook</a>
+  (every operator, runnable) · <a href="/patterns/">the patterns library</a>.</p>
+</div></section>

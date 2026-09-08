@@ -1,0 +1,502 @@
+# Wiggle — Onboarding & Configuration Reference
+
+Everything a new contributor or operator needs: what Wiggle is, how to get it running, how to
+author workflows, and **every configuration option** in one place.
+
+- New to the code? Read **§1–§4**.
+- Writing a workflow? **§5**.
+- Deploying / tuning? **§6 (the full config reference)** and **§7**.
+
+---
+
+## 1. What Wiggle is
+
+A **durable, cellular state-machine platform**. You describe a process as a graph with a
+`java.util.stream`-style DSL; a **server** runs it as a durable state machine (tokens over the graph)
+that survives crashes and resumes where it left off; **workers** pull work when they have capacity and
+run the step logic. Its distinctive move is **cellular**: a namespace becomes a *cell* — its own
+database and its own cluster — and an optional **coordinator** shards work across cells with
+directory-free routing and zero-migration rebalancing. See `README.md` for the elevator pitch and
+`docs/local-execution.md` for the execution-mode deep dive.
+
+Core properties: durable (survives restarts), exactly-once dispatch and at-least-once execution,
+pull-based workers (no inbound connectivity), content-addressed immutable definitions, multi-node
+clustering over a shared database, and **cellular sharding** — a namespace is a cell with its own
+database and cluster, placed by consistent hashing over epochs and rebalanced by drain/retire (a single
+cluster runs unchanged without a coordinator). Under a coordinator each node sets an explicit cell id
+(`WIGGLE_CELL_ID`), and a namespace becomes resolvable only after an epoch names its cells
+(`wiggle open-epoch`) — until then it is not-ready by design (no implicit cell). See
+`docs/sharding-and-epochs.md`.
+
+---
+
+## 2. Getting the code
+
+```bash
+git clone https://github.com/hadielmougy/wiggle.git
+cd wiggle
+./gradlew build          # compiles everything and runs the test suite
+```
+
+Prerequisites:
+
+- **JDK 21+** (the Gradle toolchain pins language level 21).
+- The **Gradle wrapper** is committed (`./gradlew`); no local Gradle needed. If it's ever missing,
+  regenerate once with `gradle wrapper --gradle-version 8.10`.
+- **Docker** only for the Postgres cluster demos (§4.3); nothing else needs it.
+
+Dev loop:
+
+```bash
+./gradlew build                        # full build + tests
+./gradlew check                        # tests only (JUnit)
+./gradlew :tests:run                   # the conformance scenarios, framework-free, no network
+./gradlew :module:test --tests "Foo"   # a single test class
+```
+
+Branch off `main`, keep changes focused, and run `./gradlew check` before pushing. Schema changes
+go through the migration runner (§7.4), never by editing an already-released migration.
+
+---
+
+## 3. Modules
+
+| Module | What's in it | Published artifact |
+|---|---|---|
+| `core` | JSON, the compiled graph model, retry policy, execution mode, wire records | `wiggle-core` |
+| `proto` | the `WiggleControlPlane` gRPC service + generated stubs | `wiggle-proto` |
+| `client` | the workflow DSL, `WiggleClient`, the pulling `Worker` | `wiggle-client` |
+| `server` | engine, cluster manager, housekeeper, queue-lag monitor, gRPC API, dashboard, in-memory store, injected `StorageFactory` | `wiggle-server` |
+| `jdbc` | shared dialect-aware, HikariCP-pooled JDBC store | `wiggle-jdbc` |
+| `postgres` | PostgreSQL + H2 dialects | `wiggle-postgres` |
+| `mysql` | MySQL / MariaDB dialect | `wiggle-mysql` |
+| `oracle` | Oracle Database dialect | `wiggle-oracle` |
+| `sqlserver` | Microsoft SQL Server dialect | `wiggle-sqlserver` |
+| `dist` | runnable standalone server bundling every backend (what the Docker image runs) | *(not published)* |
+| `example` | order-fulfilment demo, standalone worker/submitter, benchmark | *(not published)* |
+| `tests` | conformance scenarios + JUnit wrapper | *(not published)* |
+
+Published under group `io.github.hadielmougy`, version **2.1.8** (the runnable `dist` module is not
+published). The server core is database-agnostic; it builds its store from an injected
+`StorageFactory` and the backend is selected from the URL scheme (§7.2).
+
+---
+
+## 4. Running it
+
+### 4.1 Single node (in-memory) — dev default
+
+```bash
+./gradlew :dist:run                          # gRPC on :8080, in-memory store
+./gradlew :example:run                          # embedded server + worker + a few orders, one JVM
+```
+
+### 4.2 Server + workers as separate processes
+
+```bash
+./gradlew :dist:run                                  # terminal 1
+./gradlew :example:runWorker                            # terminal 2 (WIGGLE_URL=localhost:8080)
+./gradlew :example:submitOrders -Pcount=20             # terminal 3
+```
+
+### 4.3 A cluster on Postgres
+
+```bash
+docker compose up -d postgres        # Postgres on :5433 (see docker-compose.yml)
+scripts/cluster.sh 20                 # three server nodes, two workers, one Postgres
+
+# or on Kubernetes (kind):
+scripts/kind-up.sh 3                   # 3 server pods + Postgres at localhost:30080
+scripts/run-workers.sh 5 20            # 5 local workers, then submit 20 orders
+scripts/kind-down.sh                   # tear down
+```
+
+### 4.4 As a container (Docker)
+
+The `Dockerfile` builds a standalone server image (dashboard + **every** storage backend bundled,
+picked from the URL scheme); it reads the same env vars as the JAR (§6). TLS is set the same way —
+`WIGGLE_TLS_KEYSTORE` + a mounted keystore.
+
+```bash
+# run the released image, in-memory, secured dashboard
+docker run --rm -p 8080:8080 -p 8090:8090 -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:2.1.8
+
+# a complete stack: server + Postgres, dashboard login, durable volume, no TLS
+docker compose -f docker-compose.full.yml up -d      # → http://localhost:8090 (admin / change-me)
+
+# build locally / publish multi-arch
+docker build -t wiggle .
+scripts/docker-release.sh                             # buildx amd64+arm64, pushes to a registry
+```
+
+The image is the control plane + dashboard only; run **workers** as separate processes against
+`:8080` (your app on `wiggle-client`, or `./gradlew :example:runWorker`).
+
+### 4.5 Handy scripts
+
+| Script | Purpose |
+|---|---|
+| `scripts/build.sh` | `javac` over the whole monorepo, no Gradle |
+| `scripts/verify.sh` | run the conformance suite |
+| `scripts/demo.sh` | run the single-JVM demo |
+| `scripts/cluster.sh [count]` | 3 nodes + 2 workers on local Postgres |
+| `scripts/kind-up.sh [nodes]` / `kind-down.sh` | Postgres cluster on kind |
+| `scripts/run-workers.sh <workers> [submit]` | run N worker JVMs against `WIGGLE_URL` |
+| `scripts/bump-version.sh <new-version>` | rewrite the version everywhere (jars + Docker tag + docs) from the current one |
+| `scripts/docker-release.sh` | build & push the multi-arch server image |
+
+### 4.6 Gradle tasks
+
+| Task | Runs |
+|---|---|
+| `:dist:run` | standalone server (`com.wiggle.dist.Main`, every backend bundled) |
+| `:dist:installDist` | server distribution (bundles every storage backend) — used by the Docker image |
+| `:example:run` | `Demo` (embedded end-to-end) |
+| `:example:runWorker` | `WorkerMain` |
+| `:example:submitOrders -Pcount=N` | `SubmitOrders` |
+| `:example:bench` | `Benchmark` (throughput micro-benchmark, §6.6) |
+| `:tests:run` | `Scenarios` (framework-free conformance) |
+
+---
+
+## 5. Authoring workflows
+
+A definition is pure **topology** — named nodes and their wiring, no logic and no context type.
+`build()` returns a `Blueprint` (just the graph):
+
+```java
+Blueprint orders = Workflow.define("order-fulfilment")
+        .step("validate")
+        .gate("in-stock")
+        .fork(
+                Branch.of("payment",  s -> s.step("authorise", RetryPolicy.exponential(5, ofMillis(100)))
+                                            .step("capture")),
+                Branch.of("shipping", s -> s.step("reserve")
+                                            .sleep("await", ofMillis(300))
+                                            .step("label")))
+        .combine("merge")   // fork always rejoins at a mandatory combine
+        .step("notify")
+        .build();
+```
+
+The step logic is a separate class annotated `@Handlers("<workflow-name>")`, bound on a worker by
+name. Each method whose name matches a step (case/style-insensitive, so `inStock` serves `in-stock`)
+is a handler; its signature defines the step — one parameter is the input (decoded from JSON), a
+`boolean` return is a gate, `void` is an effect, any other return is a task whose value becomes the
+next context (types may change from step to step, like `Stream.map`):
+
+```java
+@Handlers("order-fulfilment")
+class OrderHandlers {
+    public Order   validate(Order o)  { return o.withStatus("VALIDATED"); }
+    public boolean inStock(Order o)   { return o.quantity() > 0; }        // gate
+    public Order   authorise(Order o) { return o.withPaymentRef(auth(o)); }
+    public Order   capture(Order o)   { return o.log("captured"); }
+    public Order   reserve(Order o)   { return o.withShipmentRef(reserve(o)); }
+    public Order   label(Order o)     { return o.withTrackingLabel(print(o)); }
+    public Order   notify(Order o)    { return o.withStatus("FULFILLED"); }
+}
+```
+
+Bind it on the worker with `new Worker(client, "w").register(orders).handlers(new OrderHandlers())`.
+A `combine` node (`merge`) must have an explicit handler — a method taking `@Arm("branch")`
+parameters (each branch's result) plus an optional `@Context` parameter (the pre-fork context),
+whose return is the COMPLETE post-join context. There is no implicit fold: a combine served by no
+worker fails its task, and keys the handler does not return do not survive the join.
+
+### 5.1 Operations
+
+Every operation is topology only — it names a node; the matching `@Handlers` method supplies its logic.
+
+| Operation | Meaning |
+|---|---|
+| `step(name)` / `step(name, retry)` / `then(...)` | run the step's handler on a worker; its result becomes the new context |
+| `effect(name)` | the handler runs for a side effect (a `void` method); context unchanged |
+| `gate(name)` | continue only while the guard handler returns true; false ends the instance as `gated:<name>` |
+| `choose(when(...), …, otherwise(...))` | switch/case: first matching guard's branch runs |
+| `fork(branches…).combine(name)` | run branches in parallel on isolated context copies, then rejoin at the mandatory `combine` |
+| `forEach(itemsKey, body).combine(name)` | runtime fan-out: one **isolated** branch per element of the list (or map) at `itemsKey`. **The element IS the item's context** — body handlers take the item's value (scalars included) and their return replaces it; the frozen base is available **either way — your choice**: declare a `@Context` parameter, or call `Step.base()` (the position/source key at `Step.itemIndex()`/`Step.itemMapKey()`). Combines get the same choice: `@Context` parameter or `Step.base()`. The **mandatory** combine receives `@Context` plus the collected final values (`List`/`Set` for a list input, `Map` keyed like a map input) and returns the complete post-join context. `forEach(name, itemsKey, body)` names the node explicitly |
+| `doWhile(name, body)` | run `body`, then repeat while the guard handler named `name` holds (at least once) |
+| `sleep(name, duration)` | server-side timer; holds no worker |
+| `awaitSignal(name[, timeout[, escalation]])` | wait for a named external signal; optional deadline escalates or fails |
+| `subWorkflow(name, workflow)` | run another workflow as a child; result merges back, failure propagates |
+| `step(name, queue)` / `defaultQueue(q)` | route a step (or every following step) to a dedicated worker pool |
+| `execution(mode)` | set the execution mode (§6.4) |
+| `checkpoint()` | (LOCAL_ASYNC) flush this step to the server before the next runs |
+| `build()` | produce the `Blueprint` |
+
+`step`/`effect`/`gate` take an optional trailing `RetryPolicy`. The context type is not fixed by the
+definition — each handler picks the type it works in by its signature (a typed record, or a
+`Map<String, Object>` for raw JSON), and a method may return a different type than it takes.
+
+**Evolving a record's schema.** A handler decodes the persisted JSON into its parameter type
+reflectively, so adding, renaming, or retyping a field silently defaults/loses data — or fails to
+decode — for instances already in flight (the workflow *version* hashes only the graph topology, not
+the context type). Opt into custom decoding with a `@Decode` method in the handler class: it takes the
+raw JSON (`Map<String, Object>`) and returns the current type, running instead of the default mapping
+wherever a step or combine parameter of that type is bound. It's the seam for schema-version upcasts
+or a bespoke codec:
+
+```java
+@Handlers("order-fulfilment")
+class OrderHandlers {
+    @Decode
+    public Order load(Map<String, Object> raw) {     // upcast an older shape to the current Order
+        raw.putIfAbsent("currency", "USD");           // e.g. default a field added in a later version
+        return RecordMapper.fromJson(raw, Order.class);
+    }
+    // ... step methods, which now receive the upcast Order ...
+}
+```
+
+### 5.2 Running instances
+
+```java
+try (WiggleClient client = new WiggleClient("localhost:8080")) {
+    String id = client.start(orders, Order.of(...));
+    InstanceView v = client.awaitCompletion(id, Duration.ofSeconds(30));   // COMPLETED | FAILED | CANCELLED
+    client.cancel(id, "reason");
+}
+```
+
+---
+
+## 6. Configuration reference
+
+### 6.1 How settings are supplied
+
+The **server** reads each setting from a **system property first, then an environment variable**,
+falling back to a default (`ServerConfig.fromEnvironment()`). So `-Dwiggle.port=9090` and
+`WIGGLE_PORT=9090` are equivalent. For the application distribution, pass JVM flags via the
+`WIGGLE_OPTS` (or `JAVA_OPTS`) environment variable that `bin/wiggle` honours.
+
+The **worker** is configured programmatically via `WorkerOptions` (§6.5); the `WIGGLE_*` worker
+variables in §6.7 are conventions of the *example* `WorkerMain`, not the client library.
+
+### 6.2 Server — core & storage
+
+| Env var | System property | Default | Meaning |
+|---|---|---|---|
+| `WIGGLE_PORT` | `wiggle.port` | `8080` | gRPC port (`0` = pick a free one) |
+| `WIGGLE_NODE_NAME` | `wiggle.node.name` | hostname | name shown in cluster membership |
+| `WIGGLE_JDBC_URL` | `wiggle.jdbc.url` | *(unset)* | **unset = in-memory, single node**; set to cluster on a database |
+| `WIGGLE_JDBC_USER` | `wiggle.jdbc.user` | *(unset)* | database user |
+| `WIGGLE_JDBC_PASSWORD` | `wiggle.jdbc.password` | *(unset)* | database password |
+| `WIGGLE_JDBC_POOL_SIZE` | `wiggle.jdbc.poolSize` | `10` | JDBC connection pool size |
+
+### 6.3 Server — engine, cluster & housekeeping
+
+| Env var | System property | Default | Meaning |
+|---|---|---|---|
+| `WIGGLE_LEASE_MILLIS` | `wiggle.lease.millis` | `30000` | default task lease before a stalled step is reclaimed |
+| `WIGGLE_LONGPOLL_MAX_MILLIS` | `wiggle.longpoll.maxMillis` | `20000` | server-side cap on how long a `PollTasks` may block |
+| `WIGGLE_POLL_INTERVAL_MILLIS` | `wiggle.poll.intervalMillis` | `1000` | housekeeping tick cadence (timers, lease reclaim, deadlines) |
+| `WIGGLE_HEARTBEAT_INTERVAL_MILLIS` | `wiggle.heartbeat.intervalMillis` | `5000` | cluster heartbeat/election interval |
+| `WIGGLE_MISSED_HEARTBEATS` | `wiggle.heartbeat.missedBeforeDead` | `3` | missed beats before a node is considered dead |
+| `WIGGLE_RETENTION_MILLIS` | `wiggle.retention.millis` | `86400000` | how long finished instances are kept before purge |
+| `WIGGLE_HOUSEKEEPING_BATCH` | `wiggle.housekeeping.batch` | `100` | max items a housekeeping sweep processes per tick |
+| `WIGGLE_QUEUE_LAG_CHECK_INTERVAL_MILLIS` | `wiggle.queueLag.checkIntervalMillis` | `5000` | how often the leader checks the backlog (§7.5) |
+| `WIGGLE_QUEUE_LAG_WARN_MILLIS` | `wiggle.queueLag.warnThresholdMillis` | `10000` | WARN once the backlog isn't draining within this budget |
+
+### 6.4 Execution modes
+
+Set per workflow in the DSL: `Workflow.define(...).execution(ExecutionMode.LOCAL_SYNC)`. The mode
+is part of the definition's **content hash**, so an in-flight instance keeps the mode it started on.
+
+| Mode | Behaviour | Crash blast radius | Use for |
+|---|---|---|---|
+| `SERVER` (default) | server advances one node per claim | one step | anything non-idempotent |
+| `LOCAL_SYNC` | worker chains steps, commits each before the next | one step (same as SERVER) | most workflows — safe speedup |
+| `LOCAL_ASYNC` | worker buffers up to `localBatchSize` steps, flushes in one call at handback | whole batch re-runs | idempotent, throughput-critical |
+| `DEFAULT` | defer to the server default (currently resolves to `SERVER`) | — | leave the choice to deployment |
+
+`.checkpoint()` after a step forces LOCAL_ASYNC to commit it before continuing. Details and
+benchmark numbers: `docs/local-execution.md`.
+
+### 6.5 Worker — `WorkerOptions` (programmatic)
+
+```java
+new Worker(client, "worker-1", WorkerOptions.defaults()
+        .withConcurrency(16)
+        .withLease(Duration.ofSeconds(30))
+        .withLongPollWait(Duration.ofSeconds(10))
+        .withLocalBatchSize(64));
+```
+
+| Field | Default | Meaning |
+|---|---|---|
+| `concurrency` | CPU count | max steps in flight at once |
+| `lease` | 30s | lease requested per task (renewed by heartbeats) |
+| `longPollWait` | 10s | how long the worker lets a poll block server-side |
+| `idleBackoff` | 200ms | pause when a poll returns nothing |
+| `errorBackoff` | 2s | pause after a poll error |
+| `registerOnStart` | true | (re)register blueprints when the worker starts |
+| `localBatchSize` | 64 | LOCAL_ASYNC steps buffered before a flush (ignored by SERVER/LOCAL_SYNC) |
+
+### 6.6 Logging
+
+Wiggle logs through the JDK's `System.Logger` (routes to `java.util.logging`), so there's no
+logging dependency. See `docs/` / `deploy/logging.properties` and:
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `WIGGLE_LOG_FILE` | *(unset)* | set a path to also log to a rotating file (5 × 10 MB) |
+| `WIGGLE_LOG_LEVEL` | `INFO` | file level in `System.Logger` names: `INFO`, `DEBUG`, `WARNING`, `ERROR` |
+| *(JVM flag)* `-Djava.util.logging.config.file=…` | — | full control via a `logging.properties`; overrides the env shortcut |
+
+Level mapping to java.util.logging: `DEBUG→FINE`, `TRACE→FINER`, `INFO→INFO`, `WARNING→WARNING`,
+`ERROR→SEVERE`. INFO is a clean lifecycle narrative (start/stop, membership, leader, registrations,
+failures, purges, lag warnings); DEBUG adds per-token/step/RPC detail.
+
+### 6.7 Example worker & benchmark variables
+
+Conventions of the `example` module's `WorkerMain` / `Benchmark` (not the library):
+
+| Env var | Default | Read by | Meaning |
+|---|---|---|---|
+| `WIGGLE_URL` | `localhost:8080` | WorkerMain, SubmitOrders | server gRPC target (a leading `http(s)://` is stripped) |
+| `WIGGLE_WORKER_ID` | `worker-<pid>` | WorkerMain | worker identity |
+| `WIGGLE_WORKER_CONCURRENCY` | `8` | WorkerMain | worker concurrency |
+| `WIGGLE_LOCAL_BATCH_SIZE` | `64` | WorkerMain, Benchmark | LOCAL_ASYNC batch size |
+| `WIGGLE_EXECUTION_MODE` | `SERVER` | Benchmark | execution mode for the benchmark workflow |
+| `WIGGLE_BENCH_STEPS` | `20` | Benchmark | steps in the linear pipeline |
+| `WIGGLE_BENCH_COUNT` | `2000` | Benchmark | instances to run |
+| `WIGGLE_BENCH_WORKERS` | `4` | Benchmark | worker JVM-internal instances |
+| `WIGGLE_JDBC_URL` / `_USER` / `_PASSWORD` | *(unset)* | Benchmark | run the benchmark against a real DB |
+
+> The example workflows set their mode in code via `.execution(...)`. To sweep modes without
+> editing, change `OrderFulfilment.blueprint()` to call the provided `mode()` helper (reads
+> `WIGGLE_EXECUTION_MODE`); the benchmark already reads it.
+
+---
+
+## 7. Operations
+
+### 7.1 Web dashboard
+
+Off by default. Set `WIGGLE_DASHBOARD_PORT` to a port and open `http://localhost:<port>`. A
+ClojureScript + Reagent single-page app (source in `dashboard-ui/`, compiled into the server jar)
+with four tabs: **Instances** (filter, plus a live trace overlaying token status onto the workflow
+diagram, cancel, and inline signal delivery), **Workflows** (render any workflow's compiled graph
+as a diagram), **Schedules** (create interval/cron schedules and delete them), and **Signals**
+(deliver to instances waiting on a signal). Any node can run its own; each shows the whole system.
+`./gradlew :server:build` compiles the bundle automatically (needs Node; `-PskipDashboard` or a
+missing Node toolchain falls back to a built-in minimal page). Dev loop: `cd dashboard-ui &&
+npx shadow-cljs watch app` (hot reload on :8280, proxying `/api` to a server on :8090).
+
+**Auth.** Set `WIGGLE_DASHBOARD_PASSWORD` to protect the dashboard and its JSON API against one
+admin account (`WIGGLE_DASHBOARD_USER`, default `admin`). Browsers get a `/login` form that sets a
+12h HttpOnly session cookie (`/logout` ends it); programmatic clients can use HTTP Basic auth
+instead. `/healthz`, `/login` and `/api/login` are always open. Unset = unauthenticated (warning at
+startup). Credentials are cleartext over plain HTTP, so serve over TLS for anything exposed; set the
+same credentials on every node (sessions are per-node, not shared).
+
+**Pluggable auth (SSO).** The password login is just the default `DashboardAuth` (`PasswordAuth`).
+Implement `com.wiggle.server.http.DashboardAuth` to replace it with anything -- OIDC/SSO, a header
+trusted from a reverse proxy, mTLS-only -- typically in a separate (private) module, and inject it:
+
+```java
+new WiggleServer(config, storageFactory, myAuth).start();
+```
+
+The dashboard calls `authenticate(exchange)` on every guarded request; when it returns empty an API
+caller gets 401 (plus your `apiChallenge()`, if any) and a browser is redirected to your
+`loginLocation()`. Register your own open endpoints (login redirect, OAuth callback, logout) from
+`install(HttpServer)`, using the `DashboardHttp` helpers to read/write; expose fields to the SPA
+from `describe()` (merged into `GET /api/auth`). Only `/healthz` and `/api/auth` are dashboard-owned
+and always open. Since a browser is redirected to the IdP *before* the SPA loads, no frontend change
+is needed. See `PasswordAuth` as a worked example and `DashboardAuthTest` for the contract.
+
+| Env var | System property | Default | Meaning |
+|---|---|---|---|
+| `WIGGLE_DASHBOARD_PORT` | `wiggle.dashboard.port` | `0` (off) | HTTP port for the dashboard |
+| `WIGGLE_DASHBOARD_PASSWORD` | `wiggle.dashboard.password` | *(unset)* | admin password; unset = unauthenticated |
+| `WIGGLE_DASHBOARD_USER` | `wiggle.dashboard.user` | `admin` | admin username |
+
+### 7.1a Transport security (TLS / mTLS)
+
+Opt-in and shared by the gRPC API and the HTTP dashboard. A **keystore** turns TLS on for both;
+a **truststore** additionally requires client certificates (mTLS on the server) and presents a
+client certificate (on a worker/client). Unset ⇒ plaintext for both. Stores are PKCS12 by default;
+a `.jks` path is loaded as JKS. Clients/workers read the same variables. TLS secures the channel
+and (with mTLS) authenticates the peer, but it is **not authorization** — any trusted peer may call
+any RPC; layer the dashboard's Basic auth or an external gateway on top for role separation.
+
+| Env var | System property | Default | Meaning |
+|---|---|---|---|
+| `WIGGLE_TLS_KEYSTORE` | `wiggle.tls.keystore` | *(unset)* | keystore path; unset = plaintext |
+| `WIGGLE_TLS_KEYSTORE_PASSWORD` | `wiggle.tls.keystore.password` | *(unset)* | keystore password |
+| `WIGGLE_TLS_TRUSTSTORE` | `wiggle.tls.truststore` | *(unset)* | truststore path; server ⇒ require client certs (mTLS) |
+| `WIGGLE_TLS_TRUSTSTORE_PASSWORD` | `wiggle.tls.truststore.password` | *(unset)* | truststore password |
+
+### 7.2 Storage backends
+
+No URL → in-memory (single node, dev/test). With one, the server builds its store from an injected
+`StorageFactory` — **no `ServiceLoader`**: the distribution's `WiggleStorageFactory` maps the URL
+scheme to a backend at runtime. The JDBC backends — PostgreSQL / H2 (`wiggle-postgres`),
+MySQL / MariaDB (`wiggle-mysql`), Oracle (`wiggle-oracle`), SQL Server (`wiggle-sqlserver`) — share
+one HikariCP-pooled, dialect-aware store (`wiggle-jdbc`). The `dist` module (the Docker image)
+bundles them all, so a single image serves any of `jdbc:postgresql:`, `jdbc:h2:`,
+`jdbc:mysql:` / `jdbc:mariadb:`, `jdbc:oracle:` or `jdbc:sqlserver:`. Another database is a new
+module — no engine change.
+
+Embedding the server in your own JVM? Pass the factory explicitly, e.g.
+`new WiggleServer(config, cfg -> new JdbcStorage(cfg.jdbcUrl(), cfg.jdbcUser(), cfg.jdbcPassword(),
+cfg.jdbcPoolSize(), new PostgresDialect()))` — you depend only on the storage module(s) you use.
+
+### 7.3 Signals, sub-workflows and schedules
+
+`awaitSignal(name)` parks an instance until the named signal arrives; no worker is held. Deliver
+via `client.signal(instanceId, name, payload)` (gRPC), the dashboard's Pending-signals panel, or
+`POST /api/instances/{id}/signal/{name}` (JSON body merges into the context). Optional deadline:
+`awaitSignal(name, timeout)` fails the instance on timeout; the three-arg form runs an escalation
+branch instead. Signals are not buffered -- an early delivery is a retryable conflict.
+
+`subWorkflow(name, workflow)` runs a registered workflow as a child with the parent's context;
+its final context merges back, its failure/cancellation fails the parent, and cancelling the
+parent cascades to children.
+
+Schedules fire a workflow on a fixed interval or a five-field cron expression (UTC),
+leader-driven and exactly-once per fire. From the client: `client.createSchedule(workflow,
+Duration, context)` / `createCronSchedule(workflow, "0 3 * * *", context)` / `schedules()` /
+`deleteSchedule(id)` (gRPC). Over HTTP: `POST /api/schedules {"workflow", "everyMillis"|"cron",
+"context"?}`, `GET /api/schedules`, `DELETE /api/schedules/{id}`. Creation is an **upsert keyed
+on workflow name** -- a workflow has at most one schedule, so calling create again from any
+number of client instances updates it in place rather than creating duplicates.
+
+### 7.4 Schema migrations
+
+`JdbcStorage` runs a **versioned, forward-only** migration list on startup, tracked in
+`wf_schema_version`, under a cross-node advisory lock, atomic on Postgres. To evolve the schema,
+append a `Migration(n, "name", sql)` — never edit a released one; keep changes backward-compatible
+for rolling deploys. Tables: `wf_definition`, `wf_graph_node`, `wf_graph_edge`, `wf_instance`,
+`wf_token`, `wf_node`, `wf_schema_version`.
+
+### 7.5 Queue-lag monitoring
+
+The leader watches whether the dispatchable backlog is draining fast enough (backlog vs
+cluster-wide completion rate) and logs a `WARNING` when it isn't — a sign of too few workers, a
+stuck worker pool, or a slow step. Tune with the two `WIGGLE_QUEUE_LAG_*` knobs (§6.3).
+
+### 7.6 Benchmarking
+
+```bash
+# in-memory (async ≈ sync, commits are free):
+WIGGLE_EXECUTION_MODE=LOCAL_ASYNC ./gradlew :example:bench
+
+# against Postgres (async wins — far fewer WAL fsyncs):
+docker compose up -d postgres
+WIGGLE_EXECUTION_MODE=LOCAL_ASYNC WIGGLE_JDBC_URL=jdbc:postgresql://localhost:5433/wiggle \
+  WIGGLE_JDBC_USER=wiggle WIGGLE_JDBC_PASSWORD=wiggle ./gradlew :example:bench
+```
+
+---
+
+## 8. Where to go deeper
+
+- `README.md` — overview, quick start, DSL walkthrough.
+- `docs/local-execution.md` — execution modes, the wire protocol, the shared traversal seam, and
+  the crash-replay contract per mode.
+- `RELEASING.md` — publishing to Maven Central.
+- `proto/src/main/proto/wiggle.proto` — the control-plane wire contract.
+</content>
