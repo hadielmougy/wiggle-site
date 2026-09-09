@@ -50,7 +50,7 @@ due-times are claimed transactionally in the database, not tracked in any node's
 |---|---|---|
 | **Node loss** | full outage for the failover window (typically 15–60s, see timelines) | API keeps serving; leader duties pause ≤ ~15s if the leader died; ~zero if a follower died |
 | **Deploys** | a gap (`Recreate`) — or a brief 2-node overlap, which is safe | zero-downtime rolling updates |
-| **Dispatch latency** | best possible: all wake-on-produce is node-local | cross-node dispatch pays the fallback re-claim — up to `WIGGLE_FALLBACK_POLL_MILLIS` (100ms); the adaptive ramp cuts the measured p50 from 105ms to 30ms |
+| **Dispatch latency** | lowest possible — a completing step wakes the next step's waiting worker instantly, since everything runs on the one node | a task produced via one node and awaited on another is found only by a periodic check (`WIGGLE_FALLBACK_POLL_MILLIS`, 100ms) — measured p50 105ms, or 30ms with the adaptive ramp |
 | **Throughput** | one node's API/dispatch capacity | N× API/poll capacity — but **the database is the shared ceiling**; nodes don't multiply DB throughput |
 | **Cost** | 1 pod; smallest DB connection pool | N pods; `pool × N` DB connections; a PodDisruptionBudget |
 | **Timer/schedule duties** | down during any outage (the only node is the leader) | survive any single node loss with ≤ ~15s pause |
@@ -69,10 +69,12 @@ Three of these rows deserve emphasis:
   (in our [benchmarks](/performance/), the DB was the ceiling well before the node was). If you're
   adding nodes for throughput rather than availability, you likely want
   [cells](/deployment/#c--cellular) instead: more databases, not more nodes on one.
-- **Latency mildly favors active/passive.** On a single node, every completion wakes the next
-  step's poller instantly (wake-on-produce is node-local). In a cluster, work produced via node A
-  reaches a worker parked on node B only via the periodic fallback re-claim. Measured on a real
-  2-node cluster: cross-node dispatch p50 of ~105ms with the fixed default, ~30ms with
+- **Latency mildly favors active/passive.** When a step completes, the server instantly wakes
+  any worker waiting on that queue — but that wake signal is in-memory, so it only reaches
+  workers connected to the **same node**. On a single node that's every worker, and each hop
+  costs milliseconds. In a cluster, a task produced via node A but awaited on node B is
+  discovered only by node B's periodic re-check of the database. Measured on a real 2-node
+  cluster: cross-node dispatch p50 of ~105ms with the fixed default, ~30ms with
   `WIGGLE_ADAPTIVE_FALLBACK_POLL=true`. If your flows use `LOCAL_SYNC`/`LOCAL_ASYNC` chaining
   (most should), few hops cross the server at all and this mostly disappears.
 
@@ -142,7 +144,7 @@ flowchart TD
   Q1 -->|yes| Q2{"need zero-downtime<br/>deploys?"}
   Q2 -->|yes| AA
   Q2 -->|no| Q3{"latency-critical<br/>server-mode flows?"}
-  Q3 -->|yes| AP["active/passive<br/>(all wakes node-local)"]
+  Q3 -->|yes| AP["active/passive<br/>(lowest dispatch latency)"]
   Q3 -->|no| AP2["active/passive —<br/>simplest, cheapest"]
   AA --> Q4{"DB at its ceiling, or<br/>tenant isolation needed?"}
   Q4 -->|yes| CELLS["go cellular instead<br/>(more databases)"]
