@@ -153,6 +153,9 @@ spec:
             # throughput at ~100/s and add up to 1s latency to every sleep. Under load:
             - { name: WIGGLE_POLL_INTERVAL_MILLIS, value: "200" }
             - { name: WIGGLE_HOUSEKEEPING_BATCH, value: "500" }
+            # Drain mode: a sweep that fills its batch runs again immediately, so a timer/
+            # schedule backlog clears in one tick instead of batch-per-tick (opt-in).
+            - { name: WIGGLE_ADAPTIVE_HOUSEKEEPING, value: "true" }
             - { name: WIGGLE_JDBC_URL, value: "jdbc:postgresql://postgres:5432/wiggle" }
             - { name: WIGGLE_JDBC_USER, value: "wiggle" }
             - name: WIGGLE_JDBC_PASSWORD
