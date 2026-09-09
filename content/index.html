@@ -157,7 +157,7 @@ h3{font-size:19px;font-weight:680;letter-spacing:-.01em}
 .scenario .step .arr{color:var(--dim)}
 
 /* ---------- Why Wiggle ---------- */
-.cards{display:grid;grid-template-columns:repeat(6,1fr);gap:22px}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:20px}
 .card{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:24px 22px;position:relative;overflow:hidden;transition:border-color .25s,transform .25s,box-shadow .25s;cursor:default}
 .card:hover{border-color:var(--line2);transform:translateY(-3px)}
 .card .ck{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}
@@ -172,7 +172,9 @@ h3{font-size:19px;font-weight:680;letter-spacing:-.01em}
 .card .toggle .chev{transition:transform .25s}
 .card .toggle.open .chev{transform:rotate(180deg)}
 /* Featured (Cellular) */
-.card.featured{background:linear-gradient(180deg,rgba(101,183,255,.06),transparent 60%),var(--panel);border-color:rgba(101,183,255,.22);grid-column:span 2;padding:30px 28px}
+.card.featured{background:linear-gradient(105deg,rgba(101,183,255,.07),transparent 65%),var(--panel);border-color:rgba(101,183,255,.22);grid-column:1/-1;padding:34px 38px;display:grid;grid-template-columns:1fr 360px;column-gap:44px;align-items:center}
+.card.featured .card-icon{grid-column:2;grid-row:1/span 5;height:auto;margin:0;align-items:center}
+.card.featured .ck,.card.featured h3,.card.featured p,.card.featured .toggle,.card.featured .more{grid-column:1}
 .card.featured:hover{border-color:rgba(101,183,255,.5)}
 .card.featured .ck{color:var(--blue)}
 .card.featured h3{font-size:24px;margin-bottom:12px}
@@ -181,11 +183,11 @@ h3{font-size:19px;font-weight:680;letter-spacing:-.01em}
 .card.featured .more p{font-size:13.5px}
 @media (max-width:1024px){
   .cards{grid-template-columns:repeat(2,1fr)}
-  .card.featured{grid-column:span 2}
+  .card.featured{grid-template-columns:1fr;column-gap:0;row-gap:18px;padding:28px 26px}
+  .card.featured .card-icon{grid-column:1;grid-row:auto;height:130px}
 }
 @media (max-width:520px){
   .cards{grid-template-columns:1fr}
-  .card.featured{grid-column:span 1}
 }
 
 /* ---------- Architecture (REWRITTEN) ---------- */
