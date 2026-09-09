@@ -45,6 +45,27 @@ WIGGLE_COORDINATOR_URL=… WIGGLE_NAMESPACE=… BENCH_RATES="300,340" \
   ./gradlew :example:rateCeiling     # needs a running worker
 ```
 
+## Adaptive polling — opt-in flags, measured
+
+Each adaptivity reacts to what the last poll observed — never to queue depth — so an idle system
+pays nothing extra:
+
+| what | fixed cadence | adaptive | flag |
+|---|---|---|---|
+| timer/schedule promotion under backlog (2,000 due timers, default 1s tick × batch 100) | 19.9s — **100 timers/sec**, pinned to the batch÷tick floor | **1.18s — ~1,700/sec** (10,000 due drain in 1.61s ≈ 6,200/sec) | `WIGGLE_ADAPTIVE_HOUSEKEEPING` |
+| cross-node dispatch latency (2-node cluster on one Postgres; submitter and the parked worker pinned to *different* nodes) | p50 **105ms** · p99 117ms | p50 **28ms** · p99 39ms | `WIGGLE_ADAPTIVE_FALLBACK_POLL` |
+
+The fallback ramp costs no throughput: with it enabled the cluster still sustains the 300/s
+ceiling (re-validated after fixing an early version that re-claimed fast on busy nodes and
+measurably ate the ceiling). And a node-count A/B on this box confirmed the architecture claim:
+2 nodes per cell did **not** raise the ceiling — nodes multiply availability and API capacity,
+never database throughput.
+
+```bash
+./gradlew :example:timerBench        # WIGGLE_ADAPTIVE_HOUSEKEEPING=true to compare
+WIGGLE_SUBMIT_URL=… WIGGLE_WORKER_URL=… ./gradlew :example:fallbackProbe
+```
+
 ## Resiliency under load — killing the coordinator
 
 The control plane is a Raft group (embedded Ratis + RocksDB). To measure what its failure costs,
