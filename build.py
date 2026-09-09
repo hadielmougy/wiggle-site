@@ -208,13 +208,17 @@ def main() -> None:
     (DIST / "assets" / "css" / "code.css").write_text(pygments_css(), encoding="utf-8")
     (DIST / "CNAME").write_text("wiggle.sh\n", encoding="utf-8")
 
-    # landing (raw HTML fragment, full-bleed)
+    # landing — a complete standalone document (its own nav/footer/styles), emitted verbatim;
+    # a plain HTML fragment would instead be wrapped in base.html.
     landing = (CONTENT / "index.html").read_text(encoding="utf-8")
-    emit("/", page(tpl, title="Wiggle — durable workflows, cellular by design",
-                   description="An open-source durable workflow engine with no replay and no "
-                               "determinism rules: the workflow is data, not code. One JAR plus a "
-                               "database; cellular sharding built in. Java, Go, and Python workers.",
-                   content=landing, active="", path="/"))
+    if landing.lstrip()[:15].lower().startswith("<!doctype"):
+        emit("/", landing)
+    else:
+        emit("/", page(tpl, title="Wiggle — durable workflows, cellular by design",
+                       description="An open-source durable workflow engine with no replay and no "
+                                   "determinism rules: the workflow is data, not code. One JAR plus a "
+                                   "database; cellular sharding built in. Java, Go, and Python workers.",
+                       content=landing, active="", path="/"))
 
     build_section(tpl, "docs", DOCS_NAV)
     build_section(tpl, "patterns", PATTERNS_NAV)
