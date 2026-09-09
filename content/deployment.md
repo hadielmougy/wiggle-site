@@ -13,6 +13,10 @@ Pick a profile:
 | [B · Cluster, active/active](#b--cluster-activeactive) | N nodes on one database, all serving | production HA, zero-downtime rollouts |
 | [C · Cellular](#c--cellular) | many cells (each its own DB + cluster) behind a Raft coordinator | multi-tenant isolation, scale-out past one DB |
 
+Deciding between A and B? There's a **[complete decision guide](/high-availability/)** —
+mechanics, failure timelines, every trade-off dimension, and the full configuration reference
+for both postures.
+
 ```mermaid
 flowchart LR
   Q1{"need HA?"} -->|no| A["A · single server<br/>active/passive"]
@@ -96,7 +100,8 @@ scheduling time, not data recovery time.
 > briefly runs two pods is completely safe: the two pods simply form a 2-node cluster for the
 > overlap. If that's acceptable, drop the `strategy` block — and notice you're one line
 > (`replicas: 3`) away from profile B. With Wiggle, active/active is not harder than
-> active/passive; that's the point of the design.
+> active/passive; that's the point of the design. Weighing the two postures in depth →
+> [the decision guide](/high-availability/).
 
 **Ops console** (optional, separate Deployment — same image, different role):
 

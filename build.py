@@ -224,6 +224,7 @@ def main() -> None:
     build_section(tpl, "docs", DOCS_NAV)
     build_section(tpl, "patterns", PATTERNS_NAV)
     build_page(tpl, "deployment", "Deploying on Kubernetes")
+    build_page(tpl, "high-availability", "Active/active vs active/passive", active="deployment")
     build_page(tpl, "why", "Why Wiggle")
     build_page(tpl, "performance", "Performance")
     build_page(tpl, "community", "Community")
