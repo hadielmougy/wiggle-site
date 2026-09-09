@@ -11,58 +11,73 @@
 <meta property="og:type" content="website">
 <link rel="canonical" href="$canonical">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='90'%3E%F0%9F%8C%80%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/css/site.css">
 <link rel="stylesheet" href="/assets/css/code.css">
 </head>
 <body>
 
-<nav class="topnav"><div class="wrap">
-  <a class="logo" href="/">🌀 wiggle</a>
-  <div class="links">
-    $nav
-    <a class="gh" href="https://github.com/hadielmougy/wiggle">GitHub&nbsp;↗</a>
+<nav>
+  <div class="wrap nav-inner">
+    <a class="logo" href="/"><span class="logo-mark">🌀</span> Wiggle</a>
+    <div class="nav-links" id="navLinks">
+      $nav
+      <a href="https://github.com/hadielmougy/wiggle">GitHub</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-amber btn-sm" href="/docs/onboarding/">Get Started</a>
+      <button class="nav-burger" id="burger" aria-label="Menu">☰</button>
+    </div>
   </div>
-  <details class="mobilemenu">
-    <summary aria-label="menu">☰</summary>
-    <div class="sheet">$nav<a href="https://github.com/hadielmougy/wiggle">GitHub ↗</a></div>
-  </details>
-</div></nav>
+</nav>
 
 <main>
 $content
 </main>
 
-<footer><div class="wrap">
-  <div class="cols">
-    <div>
-      <h4>Project</h4>
-      <ul>
-        <li><a href="https://github.com/hadielmougy/wiggle">GitHub</a></li>
-        <li><a href="https://central.sonatype.com/artifact/io.github.hadielmougy/wiggle-client">Maven Central</a></li>
-        <li><a href="https://github.com/hadielmougy/wiggle/issues">Issues &amp; roadmap</a></li>
-      </ul>
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="logo" href="/"><span class="logo-mark">🌀</span> Wiggle</a>
+        <p>A durable workflow engine for building reliable, fault-tolerant processes. Apache-2.0, Java 21+, clients in Java · Go · Python.</p>
+      </div>
+      <div class="foot-col">
+        <h4>Learn</h4>
+        <a href="/docs/">Documentation</a>
+        <a href="/patterns/">Patterns</a>
+        <a href="/why/">Why Wiggle</a>
+        <a href="/performance/">Performance</a>
+      </div>
+      <div class="foot-col">
+        <h4>Developers</h4>
+        <a href="/docs/onboarding/">Onboarding</a>
+        <a href="/docs/dsl-cookbook/">DSL cookbook</a>
+        <a href="/docs/sharding-and-epochs/">Sharding &amp; epochs</a>
+        <a href="/community/">Community</a>
+      </div>
+      <div class="foot-col">
+        <h4>Resources</h4>
+        <a href="https://github.com/hadielmougy/wiggle">GitHub</a>
+        <a href="https://github.com/hadielmougy/wiggle-go">wiggle-go</a>
+        <a href="https://github.com/hadielmougy/wiggle-python">wiggle-python</a>
+        <a href="mailto:info@wiggle.sh">info@wiggle.sh</a>
+      </div>
     </div>
-    <div>
-      <h4>Learn</h4>
-      <ul>
-        <li><a href="/docs/">Documentation</a></li>
-        <li><a href="/patterns/">Patterns</a></li>
-        <li><a href="/why/">Why Wiggle</a></li>
-        <li><a href="/performance/">Performance</a></li>
-      </ul>
-    </div>
-    <div>
-      <h4>Clients</h4>
-      <ul>
-        <li><a href="https://github.com/hadielmougy/wiggle">Java</a></li>
-        <li><a href="https://github.com/hadielmougy/wiggle-go">Go</a></li>
-        <li><a href="https://github.com/hadielmougy/wiggle-python">Python</a></li>
-      </ul>
+    <div class="foot-bottom">
+      <span>Apache-2.0 · built with care for processes that must not lose their place.</span>
+      <span>Maven Central · io.github.hadielmougy · wiggle.sh</span>
     </div>
   </div>
-  <p class="fin">Apache-2.0 · built with care for processes that must not lose their place. ·
-  <a href="mailto:info@wiggle.sh">info@wiggle.sh</a> · <b>wiggle.sh</b></p>
-</div></footer>
+</footer>
 
+<script>
+(function(){
+  var burger = document.getElementById('burger'), links = document.getElementById('navLinks');
+  if(burger){ burger.addEventListener('click', function(){ links.classList.toggle('open'); }); }
+})();
+</script>
 </body>
 </html>
