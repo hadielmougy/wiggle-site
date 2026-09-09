@@ -7,7 +7,7 @@ SRC=../wiggle/docs
 for f in onboarding dsl-cookbook queues sharding-and-epochs local-execution; do
   cp "$SRC/$f.md" content/docs/
 done
-for img in architecture bench-sojourn queues-flow; do
+for img in architecture bench-sojourn bench-adaptive queues-flow; do
   cp "$SRC/img/$img.svg" assets/img/
 done
 echo "synced. rebuild with: .venv/bin/python build.py"

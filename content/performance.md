@@ -61,6 +61,8 @@ measurably ate the ceiling). And a node-count A/B on this box confirmed the arch
 2 nodes per cell did **not** raise the ceiling — nodes multiply availability and API capacity,
 never database throughput.
 
+![Adaptive polling before/after: timer drain 19.9s to 1.18s; cross-node dispatch p50 105ms to 28ms, p99 117ms to 39ms.](/assets/img/bench-adaptive.svg)
+
 ```bash
 ./gradlew :example:timerBench        # WIGGLE_ADAPTIVE_HOUSEKEEPING=true to compare
 WIGGLE_SUBMIT_URL=… WIGGLE_WORKER_URL=… ./gradlew :example:fallbackProbe
