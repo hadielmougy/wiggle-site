@@ -50,6 +50,7 @@ PATTERNS_NAV = [
 TOP_NAV = [  # (href, label) for the header
     ("/docs/", "Docs"),
     ("/patterns/", "Patterns"),
+    ("/deployment/", "Deploy"),
     ("/why/", "Why Wiggle"),
     ("/performance/", "Performance"),
     ("/community/", "Community"),
@@ -222,6 +223,7 @@ def main() -> None:
 
     build_section(tpl, "docs", DOCS_NAV)
     build_section(tpl, "patterns", PATTERNS_NAV)
+    build_page(tpl, "deployment", "Deploying on Kubernetes")
     build_page(tpl, "why", "Why Wiggle")
     build_page(tpl, "performance", "Performance")
     build_page(tpl, "community", "Community")
