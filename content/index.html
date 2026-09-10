@@ -550,7 +550,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
         <h3>Durable execution</h3>
         <p>Workflow state is DB-backed rows, not a call stack. Crash mid-step → resume from durable state.</p>
         <button class="toggle" data-target="c2" aria-expanded="false">Details <span class="chev">▾</span></button>
-        <div class="more" id="c2"><div class="more-inner"><p>Exactly-once dispatch, at-least-once execution, lease-based recovery when a worker dies mid-step.</p></div></div>
+        <div class="more" id="c2"><div class="more-inner"><p>Exactly-once dispatch, at-least-once execution, lease-based recovery when a worker dies mid-step. Failed instances can unwind: declared compensations run newest-first as durable tasks (sagas).</p></div></div>
       </div>
 
       <!-- 03 State machine -->
@@ -569,7 +569,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
         <h3>State machine, not glue</h3>
         <p>A compiled graph, versioned by content hash. The workflow is data, not replayed code.</p>
         <button class="toggle" data-target="c3" aria-expanded="false">Details <span class="chev">▾</span></button>
-        <div class="more" id="c3"><div class="more-inner"><p>No determinism contract. <span class="mono">step · gate · fork · choose · timers · signals</span> — handlers can use clocks, randomness, any library.</p></div></div>
+        <div class="more" id="c3"><div class="more-inner"><p>No determinism contract. <span class="mono">step · gate · fork · choose · timers · signals · compensation</span> — handlers can use clocks, randomness, any library.</p></div></div>
       </div>
 
       <!-- 04 Pull-based -->

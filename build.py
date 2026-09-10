@@ -42,6 +42,7 @@ PATTERNS_NAV = [
     ("approval", "Human-in-the-loop approval"),
     ("fan-out", "Dynamic fan-out (forEach)"),
     ("retries", "Retries & failure isolation"),
+    ("saga", "Saga / compensation"),
     ("scheduled", "Cron & scheduled work"),
     ("microservices", "One flow, many services"),
     ("cells", "Per-tenant isolation (cells)"),
