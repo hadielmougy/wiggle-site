@@ -66,10 +66,8 @@ call), and the whole class disappears.
 
 - **Failure semantics live in the graph**, not in per-handler ceremony — a reviewer sees retry
   caps, gates, and loops in ten lines of topology.
-- **A failed instance stops; it does not roll back.** Wiggle deliberately has no automatic
-  compensation today — an explicit, honest gap (see the
-  [roadmap](https://github.com/hadielmougy/wiggle/issues)). The saga shape — forward steps paired
-  with compensating steps behind a `choose` — is expressible now, but the ergonomics are yours to
-  build until first-class helpers land.
+- **A failed instance stops — or unwinds, if you declared it.** Steps marked `.compensate()`
+  run their undos newest-first in a durable reverse pass when the instance fails; everything
+  else just stops in place. See the [saga / compensation pattern](/patterns/saga/).
 - **Sleeps park server-side.** A 30-second backoff (or a 3-day one) holds no worker; the timer
   survives restarts and fires once.

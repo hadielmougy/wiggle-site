@@ -20,7 +20,6 @@ The roadmap keeps an honest list — highlights that make good entry points:
 - **Console topology view** — namespaces → cells → epochs/ring/roster, live placement.
 - **Pending-signals over gRPC** — enumerate parked signal waits from the console in coordinator
   mode.
-- **Compensation helpers** — first-class saga/compensation patterns.
 - **Buffered signals** — deliver-before-wait semantics as an option.
 - **A pattern you use** — the [patterns library](/patterns/) grows by real-world shapes; a PR with
   a topology + handlers + a paragraph of context is a great contribution.
