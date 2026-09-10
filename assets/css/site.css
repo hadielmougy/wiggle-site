@@ -35,6 +35,7 @@ nav{position:sticky;top:0;z-index:50;background:rgba(8,11,14,.78);backdrop-filte
 .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;letter-spacing:-.01em;color:var(--text)}
 .logo:hover{text-decoration:none}
 .logo-mark{width:26px;height:26px;border-radius:8px;background:var(--blue-soft);border:1px solid rgba(101,183,255,.5);display:grid;place-items:center;font-size:15px;line-height:1}
+.logo-img{height:30px;width:auto;display:block}
 .nav-links{display:flex;align-items:center;gap:24px;margin-left:8px}
 .nav-links a{color:var(--muted);font-size:14px;font-weight:500;transition:color .18s}
 .nav-links a:hover{color:var(--text);text-decoration:none}
