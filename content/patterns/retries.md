@@ -65,7 +65,7 @@ call), and the whole class disappears.
 
 - **Failure semantics live in the graph**, not in per-handler ceremony — a reviewer sees retry
   caps, gates, and loops in ten lines of topology.
-- **A failed instance stops — or unwinds, if you declared it.** Steps marked `.compensate()`
+- **A failed instance stops — or unwinds, if you declared it.** Steps declared with `thenApplyCompensable`
   run their undos newest-first in a durable reverse pass when the instance fails; everything
   else just stops in place. See the [saga / compensation pattern](/patterns/saga/).
 - **Sleeps park server-side.** A 30-second backoff (or a 3-day one) holds no worker; the timer
