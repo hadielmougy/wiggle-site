@@ -21,6 +21,7 @@ not by hunting through handler code. A compensable step is declared by its own s
 contract names it as a zero-argument factory returning a `CompensableActivity`, which is the same
 shape the handler implements, so the two cannot drift.
 
+<!-- snippet: saga/contract,topology -->
 ```java
 interface BookingSteps {
     CompensableActivity<Booking, Booking> reserveStock();   // has an undo
@@ -45,6 +46,7 @@ The compensator is not a separately-named handler: it is a **capability of the a
 `Compensable<A, B>` (which undoes it) — so the code that does the thing and the code that undoes it
 live in **one class**, and the compiler checks the pairing rather than a string that can dangle:
 
+<!-- snippet: saga-handlers/handlers -->
 ```java
 @ForFlow("booking")
 class BookingHandlers {
