@@ -23,7 +23,7 @@ runs consecutive same-queue steps back-to-back, cutting server round-trips for s
 
 ## A real deployment — Kubernetes, PostgreSQL cells
 
-The kind-based lab cluster: 1 Raft coordinator, 2 cells (each its own server node **and its own
+The kind-based lab cluster: 1 coordinator, 2 cells (each its own server node **and its own
 PostgreSQL 16**), reached over `kubectl port-forward`. We ramp the offered start rate and watch
 **probe sojourn** — the end-to-end time of a fresh instance from `start()` to `COMPLETED`. Flat
 sojourn means the cluster keeps up; monotonic growth means arrivals are outrunning it:
@@ -70,9 +70,8 @@ WIGGLE_SUBMIT_URL=… WIGGLE_WORKER_URL=… ./gradlew :example:fallbackProbe
 
 ## Resiliency under load — killing the coordinator
 
-The control plane is a Raft group (embedded Ratis + RocksDB). To measure what its failure costs,
-we drove a paced **150 starts/sec for 240 seconds** (36,001 starts) and **SIGKILL-ed the
-coordinator JVM mid-run** — no graceful shutdown:
+To measure what a control-plane failure costs, we drove a paced **150 starts/sec for 240 seconds**
+(36,001 starts) and **SIGKILL-ed the coordinator JVM mid-run** — no graceful shutdown:
 
 | metric | result |
 |---|---|

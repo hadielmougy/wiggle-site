@@ -69,15 +69,13 @@ go through the migration runner ([§7.4](#74-schema-migrations)), never by editi
 | `client` | the workflow DSL, `WiggleClient`, the pulling `Worker` | `wiggle-client` |
 | `server` | engine, cluster manager, housekeeper, queue-lag monitor, gRPC API, `/healthz` probe, in-memory store, injected `StorageFactory` | `wiggle-server` |
 | `jdbc` | shared dialect-aware, HikariCP-pooled JDBC store | `wiggle-jdbc` |
-| `postgres` | PostgreSQL + H2 dialects | `wiggle-postgres` |
-| `mysql` | MySQL / MariaDB dialect | `wiggle-mysql` |
-| `oracle` | Oracle Database dialect | `wiggle-oracle` |
-| `sqlserver` | Microsoft SQL Server dialect | `wiggle-sqlserver` |
-| `dist` | runnable standalone server bundling every backend (what the Docker image runs) | *(not published)* |
+| `postgres` | PostgreSQL dialect, plus H2 for tests and local runs | `wiggle-postgres` |
+| `election` | leader election by announce-and-heartbeat, shared by `server` and `coordinator` | *(not published)* |
+| `dist` | runnable standalone server (what the Docker image runs) | *(not published)* |
 | `example` | order-fulfilment demo, standalone worker/submitter, benchmark | *(not published)* |
 | `tests` | conformance scenarios + JUnit wrapper | *(not published)* |
 
-Published under group `sh.wiggle`, version **0.0.2** (the runnable `dist` module is not
+Published under group `sh.wiggle`, version **0.0.3** (the runnable `dist` module is not
 published). The server core is database-agnostic; it builds its store from an injected
 `StorageFactory` and the backend is selected from the URL scheme ([§7.2](#72-storage-backends)).
 
@@ -128,12 +126,12 @@ and `ghcr.io/hadielmougy/wiggle` (GHCR) — the two are the same image; use whic
 
 ```bash
 # run the released image: an in-memory server (gRPC :8080, /healthz probe optional)
-docker run --rm -p 8080:8080 hadielmougy/wiggle:0.0.2            # Docker Hub
-# docker run --rm -p 8080:8080 ghcr.io/hadielmougy/wiggle:0.0.2  # …or GHCR
+docker run --rm -p 8080:8080 hadielmougy/wiggle:0.0.3            # Docker Hub
+# docker run --rm -p 8080:8080 ghcr.io/hadielmougy/wiggle:0.0.3  # …or GHCR
 
 # the ops console against it (same image, different role) → http://localhost:8090
 docker run --rm -p 8090:8090 -e WIGGLE_ROLE=console -e WIGGLE_URL=host.docker.internal:8080 \
-  -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:0.0.2
+  -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:0.0.3
 
 # a complete stack: server + Postgres + console with login, durable volume, no TLS
 docker compose -f docker-compose.full.yml up -d      # → http://localhost:8090 (admin / change-me)
@@ -261,7 +259,9 @@ class OrderHandlers {
 }
 ```
 
-Bind it on the worker with `new Worker(client, "w").register(orders).handlers(new OrderHandlers())`.
+Publish it with `client.register(orders)`, and bind the steps on a worker with
+`new Worker(client, "w").handlers(new OrderHandlers())` — the worker fetches the graph and matches
+against it; it is never given the topology.
 A `combine` node (`merge`) must have an explicit handler — a method taking **one parameter per
 fork arm, in fork order** (each branch's result), plus an optional `@Context` parameter (the
 pre-fork context), whose return is the COMPLETE post-join context. Arms bind by position, so a
@@ -334,13 +334,35 @@ String id = client.start("order-fulfilment", Map.of("orderId", "A-1001", "quanti
 String id2 = client.start("order-fulfilment", ctx, 302800684, "corr-42");
 ```
 
-Registration belongs with whoever owns the definition — normally the **worker artifact**, where
-the handlers and the graph they serve deploy as one atomic act (`registerOnStart`, the default;
-the binder validates handler signatures against that exact graph on startup). Content-hash
+Registration belongs with whoever owns the definition — the **author**, via `client.register(spec)`.
+A worker never publishes a topology: it binds handlers by name and fetches the graph to validate
+their signatures against on startup (`WorkerOptions.withAwaitRegistration` gives it a window to wait
+if it starts before the author). That split is why the same flow can be served by workers in Java, Go
+and Python without any of them redefining it. Content-hash
 versioning makes this safe for everyone else: re-registering an identical graph is a no-op, a
 changed graph is a NEW version that redirects nothing, in-flight instances stay pinned to the
 version they started on, and by-name submitters pick the new version up only for new starts —
 or never, if they pin.
+
+**Serving one version rather than all of them.** By default a worker's handlers serve *every*
+version of the workflow they bind, which is almost always what you want: step names are stable
+across versions, so one implementation covers them all. Pass a version to narrow that:
+
+```java
+new Worker(client, "service-a").handlers(new OrderHandlers(), v1.version());  // claims only v1
+new Worker(client, "service-b").handlers(new OrderHandlers(), v2.version());  // claims only v2
+```
+
+A scoped worker filters its claim by `(workflow, version)`, so it will not pick up another
+version's tasks. That is what makes it possible to move a capability between services: service A
+keeps serving v1 while service B takes v2, A drains its in-flight instances and retires — no shared
+deploy, no cutover. Without the scoping, A would keep claiming v2's tasks and running them with v1's
+code, because the activity a handler binds is `workflow#step` and carries no version, so the names
+match and nothing notices. Binding a version that was never registered fails at `start()`, where a
+deploy can fail, rather than as a decode error on the first task.
+
+The cost of scoping is that a version nobody registers has no worker at all, and its tasks sit
+dispatchable forever — see [§7.5](#75-backlog-coverage-work-nothing-can-claim).
 
 ---
 
@@ -381,7 +403,7 @@ variables in [§6.7](#67-example-worker--benchmark-variables) are conventions of
 | `WIGGLE_ADAPTIVE_HOUSEKEEPING` | `wiggle.adaptive.housekeeping` | `false` | a sweep that fills its batch runs again immediately (drain mode) — removes the batch÷tick promotion ceiling under backlog (measured: 100 → ~1,700 timers/sec at defaults); idle cost unchanged |
 | `WIGGLE_ADAPTIVE_FALLBACK_POLL` | `wiggle.adaptive.fallback` | `false` | freshly-parked long-polls re-claim quickly (fallback÷4) and decay to the configured interval — cuts cross-node dispatch latency in a multi-node cluster (measured: p50 105 → 30 ms); idle DB cost bounded |
 | `WIGGLE_LOOP_MAX_ITERATIONS` | `wiggle.loop.max.iterations` | `10000` | default `doWhile` budget — a loop guard may evaluate true at most this many times before the instance FAILS with a clear error; per-loop override via `doWhile(name, maxIterations, body)` |
-| `WIGGLE_QUEUE_LAG_CHECK_INTERVAL_MILLIS` | `wiggle.queueLag.checkIntervalMillis` | `5000` | how often the leader checks the backlog ([§7.5](#75-queue-lag-monitoring)) |
+| `WIGGLE_QUEUE_LAG_CHECK_INTERVAL_MILLIS` | `wiggle.queueLag.checkIntervalMillis` | `5000` | how often the leader checks the backlog ([§7.6](#76-queue-lag-monitoring)) |
 | `WIGGLE_QUEUE_LAG_WARN_MILLIS` | `wiggle.queueLag.warnThresholdMillis` | `10000` | WARN once the backlog isn't draining within this budget |
 
 ### 6.4 Execution modes
@@ -417,7 +439,6 @@ new Worker(client, "worker-1", WorkerOptions.defaults()
 | `longPollWait` | 10s | how long the worker lets a poll block server-side |
 | `idleBackoff` | 200ms | pause when a poll returns nothing |
 | `errorBackoff` | 2s | pause after a poll error |
-| `registerOnStart` | true | (re)register flow specs when the worker starts |
 | `localBatchSize` | 64 | LOCAL_ASYNC steps buffered before a flush (ignored by SERVER/LOCAL_SYNC) |
 
 **RPC retry (client + worker).** Every `WiggleClient` call — and therefore every worker RPC (poll,
@@ -490,10 +511,10 @@ WIGGLE_ROLE=console WIGGLE_URL=server:8080 …
 ```
 
 The SPA (ClojureScript + Reagent, source in `dashboard-ui/`, compiled into the **console** jar)
-has four tabs: **Instances** (filter, search by **instance id or correlation id**, a live trace
+has five tabs: **Instances** (filter, search by **instance id or correlation id**, a live trace
 overlaying token status onto the workflow diagram, cancel, inline signal delivery), **Workflows**
-(render any compiled graph), **Schedules** (create/delete interval and cron schedules), and
-**Signals**. `./gradlew :console:build` compiles the bundle automatically (needs Node;
+(render any compiled graph), **Schedules** (create/delete interval and cron schedules), **Signals**,
+and **Backlog** (dispatchable work no running worker can claim — [§7.5](#75-backlog-coverage-work-nothing-can-claim)). `./gradlew :console:build` compiles the bundle automatically (needs Node;
 `-PskipDashboard` or a missing Node toolchain skips it). Dev loop: `cd dashboard-ui &&
 npx shadow-cljs watch app` (hot reload on :8280, proxying `/api` to a console on :8090).
 
@@ -535,16 +556,38 @@ any RPC; layer the console's login/Basic auth or an external gateway on top for 
 
 No URL → in-memory (single node, dev/test). With one, the server builds its store from an injected
 `StorageFactory` — **no `ServiceLoader`**: the distribution's `WiggleStorageFactory` maps the URL
-scheme to a backend at runtime. The JDBC backends — PostgreSQL / H2 (`wiggle-postgres`),
-MySQL / MariaDB (`wiggle-mysql`), Oracle (`wiggle-oracle`), SQL Server (`wiggle-sqlserver`) — share
-one HikariCP-pooled, dialect-aware store (`wiggle-jdbc`). The `dist` module (the Docker image)
-bundles them all, so a single image serves any of `jdbc:postgresql:`, `jdbc:h2:`,
-`jdbc:mysql:` / `jdbc:mariadb:`, `jdbc:oracle:` or `jdbc:sqlserver:`. Another database is a new
-module — no engine change.
+scheme to a backend at runtime. Both dialects live in `wiggle-postgres` over one HikariCP-pooled
+store (`wiggle-jdbc`): **PostgreSQL** is what you deploy on, and **H2** (in PostgreSQL mode) is for
+tests and local runs — it takes the same schema but has no `SKIP LOCKED`, so it claims tasks by
+compare-and-set rather than in a single statement, and is not a deployment target. So the image
+serves `jdbc:postgresql:` and `jdbc:h2:`.
 
 Embedding the server in your own JVM? Pass the factory explicitly, e.g.
 `new WiggleServer(config, cfg -> new JdbcStorage(cfg.jdbcUrl(), cfg.jdbcUser(), cfg.jdbcPassword(),
 cfg.jdbcPoolSize(), new PostgresDialect()))` — you depend only on the storage module(s) you use.
+
+**The coordinator has its own, separate store.** It keeps the control plane's state (placement
+policy, the cell roster, the definition and namespace registries) in the `coord_*` schema, and it
+is deliberately not the engine's store: a cell must never know about coordinators, so the two are
+linked by nothing but the gRPC contract.
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `WIGGLE_COORD_STORE` | *(unset)* | **unset = in-memory**: one process, nothing to install, state lost on restart. Set `jdbc:postgresql://host:5432/wiggle_coord` for a durable, HA control plane |
+| `WIGGLE_COORD_JDBC_USER` / `WIGGLE_COORD_JDBC_PASSWORD` | *(unset)* | credentials for that database |
+| `WIGGLE_COORD_JDBC_POOL` | `4` | pool size (the control plane's traffic is small) |
+
+Coordinators are otherwise stateless, so HA is just several of them over one database. They elect a
+single leader between themselves — the reconcile/retire loop runs only on the leader — using the
+**same announce-and-heartbeat election the cells run** (the `election` module, shared by `server`
+and `coordinator` and depended on by neither of each other): every process announces itself and
+heartbeats, the longest-running live process leads with ties broken by id, and a process whose own
+heartbeat has gone stale stands down before doing leader work. No consensus protocol, because there
+is nothing to agree on — the shared table is the only source of truth and the rule over it is a pure
+function every process evaluates identically. What makes that safe is that the leader's duties are
+idempotent and re-entrant: a brief overlap during failover duplicates work but cannot corrupt state,
+and every policy write is a compare-and-set on `revision`, so a stale ex-leader's write matches zero
+rows and loses.
 
 ### 7.3 Signals, sub-workflows and schedules
 
@@ -586,13 +629,41 @@ For deployments where a DBA or CI pipeline — not the application — owns DDL:
   un-drifted and **fails fast** if it's behind (telling you to run the migrate job first). Run the
   migrate-only job, then run the app in verify mode with only `SELECT`/`INSERT`/… grants.
 
-### 7.5 Queue-lag monitoring
+### 7.5 Backlog coverage: work nothing can claim
+
+A token whose queue nobody polls — or whose version every worker has scoped itself out of
+([§5](#5-authoring-workflows)) — sits `READY` forever. It is not failed, not retried, not late in
+any way the engine can see: the instance reads `RUNNING` and the token reads `READY`, which is
+exactly what a healthy system looks like a moment before a worker picks the work up. No other view
+can tell you about it, which is why there is one for it.
+
+Each node remembers which queues and `(workflow, version)` pairs its current pollers serve, and the
+**Backlog** tab lists the dispatchable backlog grouped by `(workflow, version, queue)`, each slice
+flagged `covered` or not — uncovered first, with how many tasks are stranded on it and how long the
+oldest has waited. A slice is covered when some live worker polls that queue **and** either is
+unscoped or named that version, which is the same test the claim applies, so it reports what the
+dispatcher would actually do.
+
+Also on the wire as `GetBacklogCoverage`, and over HTTP at `/api/backlog`:
+
+```json
+{"slices": [{"workflow": "orders", "version": 302800684, "queue": "gpu",
+             "readyCount": 41, "oldestAvailableAt": 1757800000000, "covered": false}],
+ "uncoveredSlices": 1, "strandedTasks": 41, "livePollers": 3}
+```
+
+The registry behind it is in memory and deliberately not durable — it is written on the poll path
+and must cost a map write — so it knows only its own node's pollers, and the console aggregates
+across a namespace's cells. A worker that stops polling stops counting as cover once its entry
+times out.
+
+### 7.6 Queue-lag monitoring
 
 The leader watches whether the dispatchable backlog is draining fast enough (backlog vs
 cluster-wide completion rate) and logs a `WARNING` when it isn't — a sign of too few workers, a
 stuck worker pool, or a slow step. Tune with the two `WIGGLE_QUEUE_LAG_*` knobs ([§6.3](#63-server--engine-cluster--housekeeping)).
 
-### 7.6 Benchmarking
+### 7.7 Benchmarking
 
 ```bash
 # in-memory (async ≈ sync, commits are free):
@@ -613,4 +684,3 @@ WIGGLE_EXECUTION_MODE=LOCAL_ASYNC WIGGLE_JDBC_URL=jdbc:postgresql://localhost:54
   the crash-replay contract per mode.
 - `RELEASING.md` — publishing to Maven Central.
 - `proto/src/main/proto/wiggle.proto` — the control-plane wire contract.
-</content>
