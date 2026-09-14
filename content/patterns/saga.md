@@ -39,7 +39,7 @@ code that undoes it live in **one class**, and the pairing is checked at bind ti
 `.compensate()` without a `Compensable` handler refuses to bind, and vice versa):
 
 ```java
-@Handlers("booking")
+@ForFlow("booking")
 class BookingHandlers {
 
     public Activity<Order> reserveStock() {

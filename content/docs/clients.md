@@ -36,8 +36,8 @@ func (OrderHandlers) Price(base wiggle.Context, item any) (any, error) {
 ```
 
 ```go
-w := wiggle.NewWorker(client, "worker-go",
-    wiggle.Register(orderFlowSpec), wiggle.Handlers(OrderHandlers{}))
+w := wiggle.NewWorker(client, "worker-go").
+    RegisterHandlers("order-fulfilment", OrderHandlers{})
 w.Start(ctx)
 ```
 
@@ -67,7 +67,7 @@ class OrderHandlers:
 
 ```python
 worker = wiggle.Worker(client, "worker-py")
-worker.register(order_blueprint, OrderHandlers())
+worker.register_handlers(OrderHandlers())   # workflow comes from the class attribute
 worker.start()
 ```
 

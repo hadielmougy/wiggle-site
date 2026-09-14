@@ -35,7 +35,7 @@ FlowSpec.define("expense-approval", Expense.class, ExpenseSteps.class, (f, s) ->
 ## The handlers
 
 ```java
-@Handlers("expense-approval")
+@ForFlow("expense-approval")
 class ExpenseHandlers {
     public Expense submit(Expense e)       { return e.withState("PENDING_APPROVAL"); }
 

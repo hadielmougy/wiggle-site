@@ -42,7 +42,7 @@ FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.cl
 ## The handlers
 
 ```java
-@Handlers("order-fulfilment")
+@ForFlow("order-fulfilment")
 class OrderHandlers implements OrderSteps {      // the same contract the spec named
     public Order   validate(Order o)     { return o.withStatus("VALIDATED"); }
     public boolean inStock(Order o)      { return o.quantity() > 0; }

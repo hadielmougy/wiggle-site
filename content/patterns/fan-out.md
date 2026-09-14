@@ -29,7 +29,7 @@ FlowSpec.define("price-order", Order.class, PricingSteps.class, (f, s) -> f
 ## The handlers
 
 ```java
-@Handlers("price-order")
+@ForFlow("price-order")
 class PricingHandlers {
     public Order load(Map<String, Object> ctx) { return repo.load(ctx); }
 

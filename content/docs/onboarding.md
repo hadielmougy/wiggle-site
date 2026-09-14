@@ -240,14 +240,14 @@ public interface OrderSteps {
 FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> { … });
 ```
 
-The step logic is a separate class annotated `@Handlers("<workflow-name>")`, bound on a worker by
+The step logic is a separate class annotated `@ForFlow("<workflow-name>")`, bound on a worker by
 name. Each method whose name matches a step (case/style-insensitive, so `inStock` serves `in-stock`)
 is a handler; its signature defines the step — one parameter is the input (decoded from JSON), a
 `boolean` return is a gate, `void` is an effect, any other return is a task whose value becomes the
 next context (types may change from step to step, like `Stream.map`):
 
 ```java
-@Handlers("order-fulfilment")
+@ForFlow("order-fulfilment")
 class OrderHandlers {
     public Order   validate(Order o)  { return o.withStatus("VALIDATED"); }
     public boolean inStock(Order o)   { return o.quantity() > 0; }        // gate
@@ -260,7 +260,7 @@ class OrderHandlers {
 ```
 
 Publish it with `client.register(orders)`, and bind the steps on a worker with
-`new Worker(client, "w").handlers(new OrderHandlers())` — the worker fetches the graph and matches
+`new Worker(client, "w").registerHandler(new OrderHandlers())` — the worker fetches the graph and matches
 against it; it is never given the topology.
 A `combine` node (`merge`) must have an explicit handler — a method taking **one parameter per
 fork arm, in fork order** (each branch's result), plus an optional `@Context` parameter (the
@@ -270,7 +270,7 @@ worker fails its task, and keys the handler does not return do not survive the j
 
 ### 5.1 Operations
 
-Every operation is topology only — it names a node; the matching `@Handlers` method supplies its logic.
+Every operation is topology only — it names a node; the matching `@ForFlow` method supplies its logic.
 
 | Operation | Meaning |
 |---|---|
@@ -301,7 +301,7 @@ wherever a step or combine parameter of that type is bound. It's the seam for sc
 or a bespoke codec:
 
 ```java
-@Handlers("order-fulfilment")
+@ForFlow("order-fulfilment")
 class OrderHandlers {
     @Decode
     public Order load(Map<String, Object> raw) {     // upcast an older shape to the current Order
@@ -348,8 +348,8 @@ version of the workflow they bind, which is almost always what you want: step na
 across versions, so one implementation covers them all. Pass a version to narrow that:
 
 ```java
-new Worker(client, "service-a").handlers(new OrderHandlers(), v1.version());  // claims only v1
-new Worker(client, "service-b").handlers(new OrderHandlers(), v2.version());  // claims only v2
+new Worker(client, "service-a").registerHandler(new OrderHandlers(), v1.version());  // claims only v1
+new Worker(client, "service-b").registerHandler(new OrderHandlers(), v2.version());  // claims only v2
 ```
 
 A scoped worker filters its claim by `(workflow, version)`, so it will not pick up another

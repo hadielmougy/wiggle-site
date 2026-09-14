@@ -32,15 +32,15 @@ Four separate processes — deployed, scaled, and owned independently:
 
 ```java
 // payments-service (Java)
-new Worker(client, "payments-1").register(orders)
-        .handlers(new PaymentHandlers())        // only charge() matches a step it serves
+new Worker(client, "payments-1")
+        .registerHandler(new PaymentHandlers())   // only charge() matches a step it serves
         .start();
 ```
 
 ```go
 // notifications-service (Go) — same instance, different language
-w := wiggle.NewWorker(client, "notify-1",
-    wiggle.Register(orders), wiggle.Handlers(NotifyHandlers{}))
+w := wiggle.NewWorker(client, "notify-1").
+    RegisterHandlers("order-fulfilment", NotifyHandlers{})
 ```
 
 The server dispatches each step to its queue; whichever worker serves that queue pulls it. The
