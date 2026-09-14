@@ -22,10 +22,10 @@ interface OrderSteps {                         // one declaration, shared by eve
 }
 
 FlowSpec orders = FlowSpec.define("orders", Order.class, OrderSteps.class, (f, s) -> f
-        .thenApply(s::validate).onQueue("orders")          // queue: orders service
-        .thenApply(s::charge).onQueue("payments")          // queue: payments service
-        .thenApply(s::renderReceipt).onQueue("gpu")        // queue: the GPU pool
-        .thenAccept(s::email).onQueue("notify"));          // queue: notifications
+        .thenApply(s::validate, "orders")                  // queue: orders service
+        .thenApply(s::charge, "payments")                  // queue: payments service
+        .thenApply(s::renderReceipt, "gpu")                // queue: the GPU pool
+        .thenAccept(s::email, "notify"));                  // queue: notifications
 ```
 
 Four separate processes — deployed, scaled, and owned independently:

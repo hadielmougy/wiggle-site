@@ -67,7 +67,7 @@ class PricingHandlers {
 ## Variations
 
 - Pin one step of the body to a different worker pool:
-  `item.thenApply(s::price).thenApply(s::renderThumbnail).onQueue("gpu")` — see
+  `item.thenApply(s::price).thenApply(s::renderThumbnail, "gpu")` — see
   [queues](/docs/queues/).
 - Items can be maps or scalars; `Step.itemIndex()` / `Step.itemMapKey()` expose the element's
   position when the handler needs it.
