@@ -20,7 +20,7 @@ interface PricingSteps {
 
 FlowSpec.define("price-order", Order.class, PricingSteps.class, (f, s) -> f
     .thenApply(s::loadOrder)
-    .thenForEach("items", Item.class,            // one isolated branch per element of ctx["items"]
+    .thenForEach(Order::items,                   // one isolated branch per element of Order.items
             item -> item.thenApply(s::price))
     .combine(s::collect)                         // receives the collected results
     .thenApply(s::summarise));
