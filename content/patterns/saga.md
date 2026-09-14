@@ -1,6 +1,6 @@
 # Saga / compensation
 
-<div class="chips"><span>compensate()</span><span>Compensable</span><span>Compensation</span><span>COMPENSATED</span></div>
+<div class="chips"><span>thenApplyCompensable</span><span>CompensableActivity</span><span>Compensation</span><span>COMPENSATED</span></div>
 
 ## The problem
 
@@ -17,59 +17,69 @@ depends on may be long gone from the live state.
 ## The topology
 
 The undo is **declared in the graph** — a reviewer sees which steps compensate in the topology,
-not by hunting through handler code:
+not by hunting through handler code. A compensable step is declared by its own signature: the
+contract names it as a zero-argument factory returning a `CompensableActivity`, which is the same
+shape the handler implements, so the two cannot drift.
 
 ```java
 interface BookingSteps {
-    Booking reserveStock(Booking b);
-    Booking chargeCard(Booking b);
-    Booking bookCourier(Booking b);
+    CompensableActivity<Booking, Booking> reserveStock();   // has an undo
+    CompensableActivity<Booking, Booking> chargeCard();     // has an undo
+    Booking bookCourier(Booking b);                         // no undo: nothing external to unwind
 }
 
 FlowSpec booking = FlowSpec.define("booking", Booking.class, BookingSteps.class, (f, s) -> f
-        .thenApply(s::reserveStock).compensate()   // has an undo
-        .thenApply(s::chargeCard).compensate()     // has an undo
-        .thenApply(s::bookCourier));               // no undo: nothing external to unwind
+        .thenApplyCompensable(s::reserveStock)
+        .thenApplyCompensable(s::chargeCard)
+        .thenApply(s::bookCourier));
 ```
+
+The declaration is the whole of it: `thenApplyCompensable` accepts nothing but a
+`CompensableActivity` factory, and nothing else marks a node compensable. There is no second place
+to say it, and so no way for the topology and the handler to disagree about whether an undo exists.
 
 ## The handlers
 
-A compensable step's activity implements `Compensable` — the code that does the thing and the
-code that undoes it live in **one class**, and the pairing is checked at bind time (a declared
-`.compensate()` without a `Compensable` handler refuses to bind, and vice versa):
+The compensator is not a separately-named handler: it is a **capability of the activity class**.
+`CompensableActivity<A, B>` is just `Activity<A, B>` (which maps `A -> B` through `execute`) plus
+`Compensable<A, B>` (which undoes it) — so the code that does the thing and the code that undoes it
+live in **one class**, and the compiler checks the pairing rather than a string that can dangle:
 
 ```java
 @ForFlow("booking")
 class BookingHandlers {
 
-    public Activity<Order> reserveStock() {
-        class Reserve implements Activity<Order>, Compensable<Order> {
-            public Order execute(Order o) {
-                return o.withReservationRef(wms.reserve(o));
+    public CompensableActivity<Booking, Booking> reserveStock() {
+        return new CompensableActivity<>() {
+            public Booking execute(Booking b) {
+                return b.withReservationRef(wms.reserve(b));
             }
-            public void compensate(Compensation<Order> c) {
+            public void compensate(Compensation<Booking, Booking> c) {
                 wms.release(c.result().reservationRef());   // the step's OWN result snapshot
             }
-        }
-        return new Reserve();
+        };
     }
 
-    public Activity<Order> chargeCard() {
-        class Charge implements Activity<Order>, Compensable<Order> {
-            public Order execute(Order o) {
-                return o.withPaymentRef(gateway.capture(o));
+    public CompensableActivity<Booking, Booking> chargeCard() {
+        return new CompensableActivity<>() {
+            public Booking execute(Booking b) {
+                return b.withPaymentRef(gateway.capture(b));
             }
-            public void compensate(Compensation<Order> c) {
+            public void compensate(Compensation<Booking, Booking> c) {
                 gateway.refund(c.result().paymentRef(),
                                idempotencyKey(c.input()));  // undo-only data from the INPUT snapshot
             }
-        }
-        return new Charge();
+        };
     }
 
-    public Order bookCourier(Order o) { return o.withTracking(courier.book(o)); }
+    public Booking bookCourier(Booking b) { return b.withTracking(courier.book(b)); }
 }
 ```
+
+An activity maps `A -> B` like any other step, so a compensable step may change the context type —
+`CompensableActivity<Order, Payment>` takes an `Order` and returns a `Payment`. Its undo then
+receives a `Compensation<Order, Payment>`, the two snapshots being of different types, which is
+precisely why they are named accessors rather than two same-typed positional parameters.
 
 When `book-courier` exhausts its retries, the engine parks the instance `COMPENSATING` and runs
 the reverse pass — `charge-card`'s undo first, then `reserve-stock`'s, each as a **real durable
