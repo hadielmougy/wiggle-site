@@ -1,6 +1,6 @@
 # Parallel fork / join
 
-<div class="chips"><span>fork</span><span>combine</span><span>@Arm</span><span>@Context</span><span>RetryPolicy</span></div>
+<div class="chips"><span>allOf</span><span>combine</span><span>@Context</span><span>RetryPolicy</span></div>
 
 ## The problem
 
@@ -43,7 +43,7 @@ FlowSpec orders = Wiggle.define("order-fulfilment", Order.class, OrderSteps.clas
 
 ```java
 @Handlers("order-fulfilment")
-class OrderHandlers {
+class OrderHandlers implements OrderSteps {      // the same contract the spec named
     public Order   validate(Order o)     { return o.withStatus("VALIDATED"); }
     public boolean inStock(Order o)      { return o.quantity() > 0; }
     public Order   authorise(Order o)    { return o.withPaymentRef(gateway.auth(o)); }
@@ -51,12 +51,13 @@ class OrderHandlers {
     public Order   reserveStock(Order o) { return o.withShipmentRef(wms.reserve(o)); }
     public Order   printLabel(Order o)   { return o.withTrackingLabel(courier.label(o)); }
 
-    // Each @Arm parameter is one branch's final context; the pre-fork base arrives via
-    // @Context (or ambiently via Step.base()). The return is the COMPLETE post-join context.
-    public Order merge(@Context Order base, @Arm("payment") Order pay, @Arm("shipping") Order ship) {
-        return base.withPaymentRef(pay.paymentRef())
-                   .withShipmentRef(ship.shipmentRef())
-                   .withTrackingLabel(ship.trackingLabel());
+    // One parameter per arm, in fork order: each is that branch's final context. The pre-fork
+    // base arrives via @Context (or ambiently via Step.base()). The return is the COMPLETE
+    // post-join context.
+    public Order merge(@Context Order base, Order payment, Order shipping) {
+        return base.withPaymentRef(payment.paymentRef())
+                   .withShipmentRef(shipping.shipmentRef())
+                   .withTrackingLabel(shipping.trackingLabel());
     }
 
     public Order notify(Order o)         { return o.withStatus("FULFILLED"); }
