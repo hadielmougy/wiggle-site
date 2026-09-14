@@ -39,7 +39,7 @@ A gate separates *"this order shouldn't proceed"* (a normal outcome) from *"some
 ### 3. External dependency not ready → poll with `repeatWhile`
 
 ```java
-Wiggle.define("await-settlement", Ctx.class, SettlementSteps.class, (f, s) -> f
+FlowSpec.define("await-settlement", Ctx.class, SettlementSteps.class, (f, s) -> f
     .repeatWhile(s::stillPending, b -> b
         .thenFilter(s::notCancelled)       // false short-circuits OUT of the loop entirely
         .thenApply(s::poll)

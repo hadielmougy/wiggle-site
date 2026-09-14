@@ -18,7 +18,7 @@ interface PricingSteps {
     Order summarise(Order o);
 }
 
-Wiggle.define("price-order", Order.class, PricingSteps.class, (f, s) -> f
+FlowSpec.define("price-order", Order.class, PricingSteps.class, (f, s) -> f
     .thenApply(s::loadOrder)
     .thenForEach("items", Item.class,            // one isolated branch per element of ctx["items"]
             item -> item.thenApply(s::price))

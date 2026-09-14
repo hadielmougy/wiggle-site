@@ -21,7 +21,7 @@ interface OrderSteps {                         // one declaration, shared by eve
     void  email(Order o);
 }
 
-FlowSpec orders = Wiggle.define("orders", Order.class, OrderSteps.class, (f, s) -> f
+FlowSpec orders = FlowSpec.define("orders", Order.class, OrderSteps.class, (f, s) -> f
         .thenApply(s::validate).onQueue("orders")          // queue: orders service
         .thenApply(s::charge).onQueue("payments")          // queue: payments service
         .thenApply(s::renderReceipt).onQueue("gpu")        // queue: the GPU pool

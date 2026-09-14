@@ -26,7 +26,7 @@ interface BookingSteps {
     Booking bookCourier(Booking b);
 }
 
-FlowSpec booking = Wiggle.define("booking", Booking.class, BookingSteps.class, (f, s) -> f
+FlowSpec booking = FlowSpec.define("booking", Booking.class, BookingSteps.class, (f, s) -> f
         .thenApply(s::reserveStock).compensate()   // has an undo
         .thenApply(s::chargeCard).compensate()     // has an undo
         .thenApply(s::bookCourier));               // no undo: nothing external to unwind

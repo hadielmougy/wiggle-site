@@ -962,7 +962,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
 <pre><span class="c-com">// A complete, durable, parallel workflow — a compiled graph the server owns.</span>
 <span class="c-kw">interface</span> OrderSteps { <span class="c-kw">Order</span> <span class="c-fn">validate</span>(<span class="c-kw">Order</span> o); <span class="c-kw">boolean</span> <span class="c-fn">inStock</span>(<span class="c-kw">Order</span> o); <span class="c-com">/* … */</span> }
 
-<span class="c-kw">FlowSpec</span> orders = Wiggle.<span class="c-fn">define</span>(<span class="c-str">"order-fulfilment"</span>, Order.class, OrderSteps.class, (f, s) -&gt; {
+<span class="c-kw">FlowSpec</span> orders = FlowSpec.<span class="c-fn">define</span>(<span class="c-str">"order-fulfilment"</span>, Order.class, OrderSteps.class, (f, s) -&gt; {
     <span class="c-kw">var</span> checked  = f.<span class="c-fn">thenApply</span>(s::validate).<span class="c-fn">thenFilter</span>(s::inStock);
 
     <span class="c-com">// continuing `checked` twice is the fan-out; the arms run on isolated copies</span>
