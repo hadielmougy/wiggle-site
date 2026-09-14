@@ -67,7 +67,8 @@ class PricingHandlers {
 ## Variations
 
 - Pin one step of the body to a different worker pool:
-  `b.step("price").step("render-thumbnail", "gpu")` — see [queues](/docs/queues/).
+  `item.thenApply(s::price).thenApply(s::renderThumbnail).onQueue("gpu")` — see
+  [queues](/docs/queues/).
 - Items can be maps or scalars; `Step.itemIndex()` / `Step.itemMapKey()` expose the element's
   position when the handler needs it.
 - For a *fixed* set of differently-shaped branches, use [fork/join](/patterns/fork-join/) — fan-out

@@ -1,6 +1,6 @@
 # Retries & failure isolation
 
-<div class="chips"><span>RetryPolicy</span><span>gate</span><span>doWhile</span><span>leases</span></div>
+<div class="chips"><span>RetryPolicy</span><span>gate</span><span>repeatWhile</span><span>leases</span></div>
 
 ## The problem
 
@@ -24,9 +24,9 @@ retry. The policy lives in the topology — reviewable, and shown on the console
 ### 2. Business-level "stop" → a gate
 
 ```java
-.step("validate")
-.gate("in-stock")          // false ⇒ the instance ENDS CLEANLY — not an error, no alarm
-.step("charge")
+.thenApply(s::validate)
+.thenFilter(s::inStock)    // false ⇒ the instance ENDS CLEANLY — not an error, no alarm
+.thenApply(s::charge)
 ```
 
 ```java
@@ -36,7 +36,7 @@ public boolean inStock(Order o) { return o.quantity() > 0; }
 A gate separates *"this order shouldn't proceed"* (a normal outcome) from *"something broke"*
 (a failure). Instances ended by a gate complete without touching your error budget.
 
-### 3. External dependency not ready → poll with `doWhile`
+### 3. External dependency not ready → poll with `repeatWhile`
 
 ```java
 Wiggle.define("await-settlement", Ctx.class, SettlementSteps.class, (f, s) -> f
