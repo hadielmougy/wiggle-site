@@ -39,7 +39,7 @@ A gate separates *"this order shouldn't proceed"* (a normal outcome) from *"some
 ### 3. External dependency not ready → poll with `doWhile`
 
 ```java
-Workflow.define("await-settlement")
+Wiggle.graph("await-settlement")
     .doWhile("still-pending", b -> b
         .gate("not-cancelled")             // false short-circuits OUT of the loop entirely
         .step("poll")

@@ -77,9 +77,15 @@ go through the migration runner ([§7.4](#74-schema-migrations)), never by editi
 | `example` | order-fulfilment demo, standalone worker/submitter, benchmark | *(not published)* |
 | `tests` | conformance scenarios + JUnit wrapper | *(not published)* |
 
-Published under group `io.github.hadielmougy`, version **2.1.8** (the runnable `dist` module is not
+Published under group `sh.wiggle`, version **0.0.2** (the runnable `dist` module is not
 published). The server core is database-agnostic; it builds its store from an injected
 `StorageFactory` and the backend is selected from the URL scheme ([§7.2](#72-storage-backends)).
+
+Two extras make wiggle painless behind a locked-down internal Artifactory: **`wiggle-bom`** (import
+it as a platform and every module — plus the shared gRPC/protobuf stack — is version-aligned with no
+per-artifact pins), and **`wiggle-client-all`** (the client shaded into one jar with gRPC, protobuf
+and Guava relocated under `com.wiggle.shaded`, so it has **zero transitive dependencies** and can't
+clash with anything already on the classpath). See the README's install section for snippets.
 
 ---
 
@@ -117,15 +123,17 @@ scripts/kind-down.sh                   # tear down
 The `Dockerfile` builds one image for **every role** (`WIGGLE_ROLE=cell ∣ coordinator ∣ console`,
 every storage backend bundled, picked from the URL scheme); it reads the same env vars as the JAR
 ([§6](#6-configuration-reference)). TLS is set the same way — `WIGGLE_TLS_KEYSTORE` + a mounted
-keystore.
+keystore. The signed, multi-arch image is published to **both** `hadielmougy/wiggle` (Docker Hub)
+and `ghcr.io/hadielmougy/wiggle` (GHCR) — the two are the same image; use whichever you prefer.
 
 ```bash
 # run the released image: an in-memory server (gRPC :8080, /healthz probe optional)
-docker run --rm -p 8080:8080 hadielmougy/wiggle:2.1.8
+docker run --rm -p 8080:8080 hadielmougy/wiggle:0.0.2            # Docker Hub
+# docker run --rm -p 8080:8080 ghcr.io/hadielmougy/wiggle:0.0.2  # …or GHCR
 
 # the ops console against it (same image, different role) → http://localhost:8090
 docker run --rm -p 8090:8090 -e WIGGLE_ROLE=console -e WIGGLE_URL=host.docker.internal:8080 \
-  -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:2.1.8
+  -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:0.0.2
 
 # a complete stack: server + Postgres + console with login, durable volume, no TLS
 docker compose -f docker-compose.full.yml up -d      # → http://localhost:8090 (admin / change-me)
@@ -167,11 +175,44 @@ processes against `:8080` (your app on `wiggle-client`, or `./gradlew :example:r
 
 ## 5. Authoring workflows
 
-A definition is pure **topology** — named nodes and their wiring, no logic and no context type.
-`build()` returns a `Blueprint` (just the graph):
+A definition compiles to pure **topology** — named nodes and their wiring. What reaches the server
+is a `FlowSpec`: the graph, and nothing else. There are two ways to write one, and they differ only
+in where the step names come from.
+
+**`Wiggle.define` — when the handlers are at hand.** Each step is a method reference to the handler
+that implements it, so the compiler checks that every step consumes what the one before it produced,
+and a rename carries the step name with it:
 
 ```java
-Blueprint orders = Workflow.define("order-fulfilment")
+OrderHandlers h = new OrderHandlers();
+
+FlowSpec orders = Wiggle.define("order-fulfilment", Order.class, f -> {
+    var validated = f.thenApply(h::validate).thenFilter(h::inStock);
+
+    var payment  = validated.thenApply(h::authorise, RetryPolicy.exponential(5, ofMillis(100)))
+                            .thenApply(h::capture);
+    var shipping = validated.thenApply(h::reserve)
+                            .thenSleep("await", ofMillis(300))
+                            .thenApply(h::label);
+
+    return Wiggle.allOf(payment, shipping)   // continuing `validated` twice is the fan-out
+            .combineWithContext(h::merge)    // arms are isolated, so rejoining is always explicit
+            .thenApply(h::notify);
+});
+```
+
+Nothing executes while the workflow is defined — the chain is walked once and recorded. There is no
+`get()` or `join()` on a handle, because there is nothing to wait for: the server drives the graph
+one node at a time. An ordinary `for` loop in the body therefore *unrolls* into nodes; anything that
+depends on a step's **result** uses `Wiggle.oneOf` or `repeatWhile`, which the engine evaluates at
+run time.
+
+**`Wiggle.graph` — when they are not.** For a topology registered by an author with no handler
+classes on its classpath, generated from data, or served by several independent workers that each
+bind a subset by name:
+
+```java
+FlowSpec orders = Wiggle.graph("order-fulfilment")
         .step("validate")
         .gate("in-stock")
         .fork(
@@ -184,6 +225,9 @@ Blueprint orders = Workflow.define("order-fulfilment")
         .step("notify")
         .build();
 ```
+
+Both produce the same `FlowSpec`, node for node and hash for hash; a worker cannot tell which was
+used, and one codebase may use both.
 
 The step logic is a separate class annotated `@Handlers("<workflow-name>")`, bound on a worker by
 name. Each method whose name matches a step (case/style-insensitive, so `inStock` serves `in-stock`)
@@ -205,9 +249,10 @@ class OrderHandlers {
 ```
 
 Bind it on the worker with `new Worker(client, "w").register(orders).handlers(new OrderHandlers())`.
-A `combine` node (`merge`) must have an explicit handler — a method taking `@Arm("branch")`
-parameters (each branch's result) plus an optional `@Context` parameter (the pre-fork context),
-whose return is the COMPLETE post-join context. There is no implicit fold: a combine served by no
+A `combine` node (`merge`) must have an explicit handler — a method taking **one parameter per
+fork arm, in fork order** (each branch's result), plus an optional `@Context` parameter (the
+pre-fork context), whose return is the COMPLETE post-join context. Arms bind by position, so a
+combine takes them all; give an arm you do not need a parameter and ignore it. There is no implicit fold: a combine served by no
 worker fails its task, and keys the handler does not return do not survive the join.
 
 ### 5.1 Operations
@@ -229,7 +274,7 @@ Every operation is topology only — it names a node; the matching `@Handlers` m
 | `step(name, queue)` / `defaultQueue(q)` | route a step (or every following step) to a dedicated worker pool |
 | `execution(mode)` | set the execution mode ([§6.4](#64-execution-modes)) |
 | `checkpoint()` | (LOCAL_ASYNC) flush this step to the server before the next runs |
-| `build()` | produce the `Blueprint` |
+| `build()` | produce the `FlowSpec` |
 
 `step`/`effect`/`gate` take an optional trailing `RetryPolicy`. The context type is not fixed by the
 definition — each handler picks the type it works in by its signature (a typed record, or a
@@ -259,14 +304,14 @@ class OrderHandlers {
 
 ```java
 try (WiggleClient client = new WiggleClient("localhost:8080")) {
-    String id = client.start(orders, Order.of(...));                       // same-JVM convenience: by Blueprint
+    String id = client.start(orders, Order.of(...));                       // same-JVM convenience: by FlowSpec
     InstanceView v = client.awaitCompletion(id, Duration.ofSeconds(30));   // COMPLETED | FAILED | CANCELLED
     client.cancel(id, "reason");
 }
 ```
 
 **Integrating as a separate team — start by name, no jar.** A submitting service does not need
-the Blueprint or any shared artifact: the graph is data the server owns, so the submitter's whole
+the FlowSpec or any shared artifact: the graph is data the server owns, so the submitter's whole
 contract is the workflow **name** plus the agreed context shape (document it like any API schema).
 
 ```java
@@ -328,7 +373,8 @@ variables in [§6.7](#67-example-worker--benchmark-variables) are conventions of
 
 ### 6.4 Execution modes
 
-Set per workflow in the DSL: `Workflow.define(...).execution(ExecutionMode.LOCAL_SYNC)`. The mode
+Set per workflow: `f.execution(ExecutionMode.LOCAL_SYNC)` in a `define` body, or
+`Wiggle.graph(...).execution(...)`. The mode
 is part of the definition's **content hash**, so an in-flight instance keeps the mode it started on.
 
 | Mode | Behaviour | Crash blast radius | Use for |
@@ -358,8 +404,17 @@ new Worker(client, "worker-1", WorkerOptions.defaults()
 | `longPollWait` | 10s | how long the worker lets a poll block server-side |
 | `idleBackoff` | 200ms | pause when a poll returns nothing |
 | `errorBackoff` | 2s | pause after a poll error |
-| `registerOnStart` | true | (re)register blueprints when the worker starts |
+| `registerOnStart` | true | (re)register flow specs when the worker starts |
 | `localBatchSize` | 64 | LOCAL_ASYNC steps buffered before a flush (ignored by SERVER/LOCAL_SYNC) |
+
+**RPC retry (client + worker).** Every `WiggleClient` call — and therefore every worker RPC (poll,
+complete, fail, heartbeat) — retries on `UNAVAILABLE`, so an operation issued while a cell is
+momentarily gone (a restart, or an active/passive failover taking over the address) rides out the
+outage instead of failing. Only `UNAVAILABLE` is retried (the RPC almost certainly never ran, so
+it's safe even for non-idempotent calls); permanent errors and `DEADLINE_EXCEEDED` are not. Tune per
+JVM: `-Dwiggle.rpc.maxAttempts` / `WIGGLE_RPC_MAX_ATTEMPTS` (default `5`; `1` disables retry) and
+`-Dwiggle.rpc.retryDelayMillis` / `WIGGLE_RPC_RETRY_DELAY_MILLIS` (default `200`, exponential
+backoff). For exactly-once starts across a retried failover, pass a `correlationId` to `start`.
 
 ### 6.6 Logging
 
@@ -393,7 +448,7 @@ Conventions of the `example` module's `WorkerMain` / `Benchmark` (not the librar
 | `WIGGLE_JDBC_URL` / `_USER` / `_PASSWORD` | *(unset)* | Benchmark | run the benchmark against a real DB |
 
 > The example workflows set their mode in code via `.execution(...)`. To sweep modes without
-> editing, change `OrderFulfilment.blueprint()` to call the provided `mode()` helper (reads
+> editing, change `OrderFulfilment.flow spec()` to call the provided `mode()` helper (reads
 > `WIGGLE_EXECUTION_MODE`); the benchmark already reads it.
 
 ---
@@ -505,6 +560,18 @@ number of client instances updates it in place rather than creating duplicates.
 append a `Migration(n, "name", sql)` — never edit a released one; keep changes backward-compatible
 for rolling deploys. Tables: `wf_definition`, `wf_graph_node`, `wf_graph_edge`, `wf_instance`,
 `wf_token`, `wf_node`, `wf_schema_version`.
+
+Each applied migration records a **SHA-256 checksum** of its source in `wf_schema_version`; if an
+already-applied migration's definition later differs from the code (someone edited a released
+migration), startup **fails loudly with a drift error** rather than silently diverging.
+
+For deployments where a DBA or CI pipeline — not the application — owns DDL:
+
+- **`WIGGLE_MIGRATE_ONLY=true`** — a one-shot job that applies pending migrations and **exits** (run
+  it as an init container or a CI step; it forces apply even if the app env pins verify).
+- **`WIGGLE_SCHEMA_MODE=verify`** — the app **applies nothing**; it checks the schema is current and
+  un-drifted and **fails fast** if it's behind (telling you to run the migrate job first). Run the
+  migrate-only job, then run the app in verify mode with only `SELECT`/`INSERT`/… grants.
 
 ### 7.5 Queue-lag monitoring
 

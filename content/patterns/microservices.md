@@ -14,7 +14,7 @@ that imports everyone's code.
 Each step names a **queue**; each service runs a worker subscribed only to its queues:
 
 ```java
-Blueprint orders = Workflow.define("orders")
+FlowSpec orders = Wiggle.graph("orders")
         .step("validate", "orders")            // queue: orders service
         .step("charge", "payments")            // queue: payments service
         .step("render-receipt", "gpu")         // queue: the GPU pool

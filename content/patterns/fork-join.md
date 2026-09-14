@@ -12,7 +12,7 @@ production.
 ## The topology
 
 ```java
-Blueprint orders = Workflow.define("order-fulfilment")
+FlowSpec orders = Wiggle.graph("order-fulfilment")
         .step("validate")
         .gate("in-stock")                    // false ⇒ the instance ends cleanly
         .fork(

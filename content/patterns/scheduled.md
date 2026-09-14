@@ -13,7 +13,7 @@ Schedules are server-side objects that start a fresh instance of a registered wo
 expression or a fixed interval:
 
 ```java
-Blueprint report = Workflow.define("nightly-report")
+FlowSpec report = Wiggle.graph("nightly-report")
         .step("gather")
         .step("render")
         .effect("distribute")

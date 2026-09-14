@@ -960,7 +960,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
 
       <div class="code-pane active" id="java">
 <pre><span class="c-com">// A complete, durable, parallel workflow — a compiled graph the server owns.</span>
-<span class="c-kw">Blueprint</span> orders = Workflow.<span class="c-fn">define</span>(<span class="c-str">"order-fulfilment"</span>)
+<span class="c-kw">FlowSpec</span> orders = Wiggle.<span class="c-fn">graph</span>(<span class="c-str">"order-fulfilment"</span>)
         .<span class="c-fn">step</span>(<span class="c-str">"validate"</span>)
         .<span class="c-fn">gate</span>(<span class="c-str">"in-stock"</span>)
         .<span class="c-fn">fork</span>(Branch.<span class="c-fn">of</span>(<span class="c-str">"payment"</span>,  s -&gt; s.<span class="c-fn">step</span>(<span class="c-str">"authorise"</span>).<span class="c-fn">step</span>(<span class="c-str">"capture"</span>)),

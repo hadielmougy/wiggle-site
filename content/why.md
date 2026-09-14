@@ -34,7 +34,7 @@ A business process is described as a **graph** — named steps and how they chai
 rejoin — and that graph, not any function, is what the server owns:
 
 ```java
-Blueprint orders = Workflow.define("order-fulfilment")
+FlowSpec orders = Wiggle.graph("order-fulfilment")
         .step("validate")
         .gate("in-stock")                    // false ⇒ the instance ends cleanly
         .fork(

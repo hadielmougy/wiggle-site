@@ -11,7 +11,7 @@ never. Holding a worker thread (or any process resource) for that wait is absurd
 ## The topology
 
 ```java
-Workflow.define("expense-approval")
+Wiggle.graph("expense-approval")
     .step("submit")
     .awaitSignal("manager-approval", Duration.ofHours(48),
         esc -> esc.step("auto-escalate"))            // runs only if the deadline passes

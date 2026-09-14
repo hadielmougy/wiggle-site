@@ -20,7 +20,7 @@ The undo is **declared in the graph** — a reviewer sees which steps compensate
 not by hunting through handler code:
 
 ```java
-Blueprint booking = Workflow.define("booking")
+FlowSpec booking = Wiggle.graph("booking")
         .step("reserve-stock").compensate()      // has an undo
         .step("charge-card").compensate()        // has an undo
         .step("book-courier")                    // no undo: nothing external to unwind

@@ -37,7 +37,7 @@ func (OrderHandlers) Price(base wiggle.Context, item any) (any, error) {
 
 ```go
 w := wiggle.NewWorker(client, "worker-go",
-    wiggle.Register(orderBlueprint), wiggle.Handlers(OrderHandlers{}))
+    wiggle.Register(orderFlowSpec), wiggle.Handlers(OrderHandlers{}))
 w.Start(ctx)
 ```
 

@@ -11,7 +11,7 @@ merge) is exactly the fragile plumbing a workflow engine should own.
 ## The topology
 
 ```java
-Workflow.define("price-order")
+Wiggle.graph("price-order")
     .step("load-order")
     .forEach("charge-items", "items", b -> b     // one isolated branch per element of ctx["items"]
         .step("price"))
