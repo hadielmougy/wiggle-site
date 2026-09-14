@@ -24,5 +24,5 @@ Every page follows the same skeleton:
 3. **The handlers** — plain methods matched by name; the signature picks the step kind.
 4. **Why this shape** — the design reasoning, including what Wiggle deliberately makes explicit.
 
-The [DSL cookbook](/docs/dsl-cookbook/) is the operator-by-operator companion: eight runnable
+The [cookbook](/docs/cookbook/) is the operator-by-operator companion: eight runnable
 workflows exercising everything on these pages (`./gradlew :example:runCookbook`).

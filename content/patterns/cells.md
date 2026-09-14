@@ -12,11 +12,11 @@ outgrows its slice you're staring at a data migration.
 ## The shape
 
 A **namespace** maps to one or more **cells**; each cell is a complete deployment — its own
-server cluster *and its own database*. A small Raft-backed coordinator owns placement:
+server cluster *and its own database*. A small coordinator owns placement:
 
 ```bash
 # every role is the same image
-WIGGLE_ROLE=coordinator WIGGLE_COORD_STORE=ratis:///var/lib/wiggle/coord   # control plane
+WIGGLE_ROLE=coordinator WIGGLE_COORD_STORE=jdbc:postgresql://dbC/wiggle_coord  # control plane
 WIGGLE_ROLE=cell WIGGLE_CELL_ID=cellA WIGGLE_NAMESPACE=orders \
   WIGGLE_COORDINATOR_URL=coordinator:8099 WIGGLE_JDBC_URL=jdbc:postgresql://dbA/wiggle
 ```
@@ -49,9 +49,10 @@ automatically.
 - **Routing is directory-free.** The instance id embeds namespace, epoch, and shard
   (`orders.e0.s3.01J…`) — any party computes the owning cell from the id alone. No lookup table
   to cache, no directory service on the request path.
-- **The control plane is self-contained.** The coordinator is a Raft group over embedded
-  Ratis + RocksDB — no external database, no etcd. Kill it under load and running work doesn't
-  notice; new-start routing recovers in seconds with state intact
+- **The control plane is small and off the request path.** Coordinators are stateless processes
+  over their own small database; several of them elect one leader with the same
+  announce-and-heartbeat election the cells run. Kill one under load and running work doesn't
+  notice — routing comes from the instance id, not from the coordinator
   ([measured](/performance/)).
 
 ## Variations

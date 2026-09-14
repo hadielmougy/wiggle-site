@@ -115,7 +115,7 @@ branches inside workflow code, no migration windows.
 
 Wiggle's unit of scale is the **cell**: a namespace maps to one or more cells, and each cell is a
 complete, independent deployment — its own server cluster and, crucially, *its own database*. A
-small Raft-backed coordinator assigns work across cells by consistent hashing over **epochs**:
+small coordinator assigns work across cells by consistent hashing over **epochs**:
 publishing a new shard-to-cell ring is an epoch bump; new instances follow the new ring while
 in-flight instances finish where they live, so **resharding never migrates data**. Routing is
 directory-free because each instance id embeds its namespace, epoch, and shard

@@ -535,7 +535,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
         <h3>Cellular by design</h3>
         <p>A namespace is a cell: its own database, its own cluster. Grow by adding cells — resharding never migrates data. Each cell is an independent blast radius.</p>
         <button class="toggle" data-target="c1" aria-expanded="false">Details <span class="chev">▾</span></button>
-        <div class="more" id="c1"><div class="more-inner"><p>A Raft coordinator places instances by consistent hashing over epochs. The instance id carries its own routing — <span class="mono" style="color:var(--muted)">orders.e0.s3.01J…</span> — so any party can compute the owning cell from the id alone.</p></div></div>
+        <div class="more" id="c1"><div class="more-inner"><p>A coordinator places instances by consistent hashing over epochs. The instance id carries its own routing — <span class="mono" style="color:var(--muted)">orders.e0.s3.01J…</span> — so any party can compute the owning cell from the id alone.</p></div></div>
       </div>
 
       <!-- 02 Durable -->
@@ -610,7 +610,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
         <h3>Lightweight</h3>
         <p>One JAR + a database. Embedded in your JVM for tests.</p>
         <button class="toggle" data-target="c5" aria-expanded="false">Details <span class="chev">▾</span></button>
-        <div class="more" id="c5"><div class="more-inner"><p>PostgreSQL, MySQL, Oracle, SQL Server — or in-memory. No Elasticsearch, no sidecar mesh, no mandatory Kubernetes.</p></div></div>
+        <div class="more" id="c5"><div class="more-inner"><p>PostgreSQL — or in-memory for dev. No Elasticsearch, no sidecar mesh, no mandatory Kubernetes.</p></div></div>
       </div>
 
       <!-- 06 Operable -->
@@ -639,11 +639,11 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
     <div class="section-head reveal">
       <span class="eyebrow blue">Architecture</span>
       <h2 style="margin-top:16px">Topology and placement are separate.</h2>
-      <p class="lead">Clients and pull-based workers speak gRPC to cells. Each cell is a complete cluster with its own database. An optional Raft coordinator manages shard placement through epochs — without migrating in-flight data.</p>
+      <p class="lead">Clients and pull-based workers speak gRPC to cells. Each cell is a complete cluster with its own database. An optional coordinator manages shard placement through epochs — without migrating in-flight data.</p>
     </div>
 
     <div class="arch-canvas reveal">
-      <svg viewBox="0 0 1140 760" role="img" aria-label="Wiggle architecture: clients and pull workers talk gRPC to isolated cells A, B, and C; an optional Raft coordinator publishes shard to cell rings per epoch; in-flight workflows stay where they are when a new epoch begins" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox="0 0 1140 760" role="img" aria-label="Wiggle architecture: clients and pull workers talk gRPC to isolated cells A, B, and C; an optional coordinator publishes shard to cell rings per epoch; in-flight workflows stay where they are when a new epoch begins" preserveAspectRatio="xMidYMid meet">
 
         <!-- Subtle engineering grid rect frame -->
         <rect x="20" y="20" width="1100" height="720" rx="14" fill="none" stroke="rgba(101,183,255,.08)" stroke-dasharray="2 6"/>
@@ -740,7 +740,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
           <rect x="410" y="618" width="160" height="28" rx="6" fill="rgba(242,179,93,.07)" stroke="rgba(242,179,93,.45)"/>
           <text x="490" y="637" text-anchor="middle" fill="#F2B35D" font-size="11.5" font-family="JetBrains Mono">shard → cell · consistent hash</text>
           <rect x="580" y="618" width="160" height="28" rx="6" fill="rgba(242,179,93,.07)" stroke="rgba(242,179,93,.45)"/>
-          <text x="660" y="637" text-anchor="middle" fill="#F2B35D" font-size="11.5" font-family="JetBrains Mono">publishes epochs · Raft</text>
+          <text x="660" y="637" text-anchor="middle" fill="#F2B35D" font-size="11.5" font-family="JetBrains Mono">publishes epochs</text>
         </g>
 
         <!-- ============== LINKS from coordinator to cells (control plane, dashed) ============== -->
@@ -933,7 +933,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
             <g><rect class="node-box" x="150" y="60" width="120" height="100" rx="12" stroke="rgba(101,183,255,.4)"/><text class="node-label dim" x="210" y="95" text-anchor="middle" fill="#65B7FF" style="font-size:13.5px">cell B</text><text class="node-label dim" x="210" y="118" text-anchor="middle" style="font-size:11px">DB + cluster</text></g>
             <g><rect class="node-box" x="290" y="60" width="120" height="100" rx="12" stroke="rgba(101,183,255,.4)"/><text class="node-label dim" x="350" y="95" text-anchor="middle" fill="#65B7FF" style="font-size:13.5px">cell C</text><text class="node-label dim" x="350" y="118" text-anchor="middle" style="font-size:11px">DB + cluster</text></g>
             <path class="edge draw" d="M70 160 V186 M210 160 V186 M350 160 V186" stroke="rgba(242,179,93,.5)" stroke-dasharray="3 4"/>
-            <g><rect class="node-box" x="130" y="186" width="160" height="24" rx="9" stroke="rgba(242,179,93,.55)"/><text class="node-label" x="210" y="202" text-anchor="middle" fill="#F2B35D" style="font-size:13px">Raft coordinator</text></g>
+            <g><rect class="node-box" x="130" y="186" width="160" height="24" rx="9" stroke="rgba(242,179,93,.55)"/><text class="node-label" x="210" y="202" text-anchor="middle" fill="#F2B35D" style="font-size:13px">coordinator</text></g>
             <circle class="signal" cx="0" cy="0" r="3" style="offset-path:path('M210 160 V186');animation-delay:.6s"/>
           </svg>
         </div>
@@ -1063,7 +1063,7 @@ worker.<span class="c-fn">start</span>()</pre>
       <div class="foot-col">
         <h4>Developers</h4>
         <a href="/docs/onboarding/">Onboarding</a>
-        <a href="/docs/dsl-cookbook/">DSL cookbook</a>
+        <a href="/docs/cookbook/">Cookbook</a>
         <a href="/docs/sharding-and-epochs/">Sharding &amp; epochs</a>
         <a href="/community/">Community</a>
       </div>
@@ -1111,7 +1111,7 @@ worker.<span class="c-fn">start</span>()</pre>
     ['A <span class="mono" style="color:var(--amber)">WiggleServer</span> inside your JVM with an in-memory store. Perfect for development, tests, and single-process applications.', ['dev','tests','single-process apps']],
     ['One node, gRPC <span class="mono" style="color:var(--amber)">:8080</span>, in-memory or a database. The first real deployment — small services, your first production workflow.', ['small services','first deploy','one node']],
     ['Several nodes on one database — a shared queue, with the leader running timers and recovery. Production-grade high availability.', ['production','HA','shared queue','leader']],
-    ['Many cells, each with its own database and cluster, behind an optional Raft coordinator. Multi-tenant isolation and scale-out — resharding never migrates data.', ['multi-tenant','scale-out','isolation','no data migration']]
+    ['Many cells, each with its own database and cluster, behind an optional coordinator. Multi-tenant isolation and scale-out — resharding never migrates data.', ['multi-tenant','scale-out','isolation','no data migration']]
   ];
   steps.forEach(function(btn){
     btn.addEventListener('click', function(){

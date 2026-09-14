@@ -53,7 +53,7 @@ retried per its own policies, traced like anything else.
 
 - A scheduled instance can immediately `forEach` over tenants — the 03:00 firing fans out into
   per-tenant isolated branches ([dynamic fan-out](/patterns/fan-out/)).
-- Combine with [sub-workflows](/docs/dsl-cookbook/) to keep the scheduled parent thin: it just
+- Combine with [sub-workflows](/docs/cookbook/) to keep the scheduled parent thin: it just
   composes children that also run standalone.
 - For "run this once, later" (not recurring), a `sleep` step at the head of a workflow is often
   simpler than a schedule.

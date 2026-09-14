@@ -11,7 +11,7 @@ Pick a profile:
 |---|---|---|
 | [A · Single server, active/passive](#a--single-server-activepassive) | 1 node; Kubernetes reschedules it | small services, first production deploy |
 | [B · Cluster, active/active](#b--cluster-activeactive) | N nodes on one database, all serving | production HA, zero-downtime rollouts |
-| [C · Cellular](#c--cellular) | many cells (each its own DB + cluster) behind a Raft coordinator | multi-tenant isolation, scale-out past one DB |
+| [C · Cellular](#c--cellular) | many cells (each its own DB + cluster) behind a coordinator | multi-tenant isolation, scale-out past one DB |
 
 Deciding between A and B? There's a **[complete decision guide](/high-availability/)** —
 mechanics, failure timelines, every trade-off dimension, and the full configuration reference
@@ -86,9 +86,9 @@ spec:
     - { name: grpc, port: 8080, targetPort: 8080 }
 ```
 
-Point it at your managed Postgres (RDS, Cloud SQL, …) — or MySQL, Oracle, or SQL Server; the JDBC
-URL scheme picks the backend. The schema creates and migrates itself on startup (versioned,
-forward-only, under a cross-node advisory lock), so there is no migration job to run.
+Point it at your managed Postgres (RDS, Cloud SQL, …). The schema creates and migrates itself on
+startup (versioned, forward-only, under a cross-node advisory lock), so there is no migration job
+to run.
 
 **What failover looks like:** the pod dies → Kubernetes reschedules → the new pod reads where
 every instance stands and continues. Steps that were leased to a worker when the node died are
@@ -213,38 +213,35 @@ cluster, since every node sees the same database).
 
 When one database is no longer enough — or tenants must not share blast radius — a namespace
 becomes one or more **cells**: each a complete profile-B cluster with **its own database**. A
-small **Raft coordinator** (embedded Ratis + RocksDB — no external store, no etcd) owns
+small **coordinator** — stateless processes over a small database of their own — owns
 placement: it publishes shard→cell rings as *epochs*, and instance ids carry their own routing
 (`orders.e0.s3.01J…`), so nothing does directory lookups on the request path. The coordinator is
-**not in the execution path** — in our failover test, SIGKILL-ing it under load cost a 5.4s gap
+**not in the execution path** — in a failover test, SIGKILL-ing it under load cost a 5.4s gap
 on *new* starts only; running work never noticed.
 
 Deploy order: coordinator → cells → publish an epoch → console/clients.
 
-### C.1 The coordinator (StatefulSet)
+### C.1 The coordinator (Deployment)
 
-Stable identity + a PVC per pod (the Raft log and RocksDB state survive restarts *and*
-reschedules), behind a headless Service so peers resolve each other by DNS:
+Coordinators hold no state of their own — it lives in a small database they share — so this is an
+ordinary Deployment behind an ordinary Service. No PVC, no stable identity, no peer list, no
+bootstrap ordering. Run more than one and they elect a leader between themselves; only the leader
+runs the reconcile/retire loop.
 
 ```yaml
 apiVersion: v1
 kind: Service
 metadata: { name: coordinator }
 spec:
-  clusterIP: None
-  publishNotReadyAddresses: true   # peers must resolve each other BEFORE they are Ready,
-  selector: { app: coordinator }   # or the Raft group can never form (bootstrap deadlock)
+  selector: { app: coordinator }
   ports:
     - { name: grpc, port: 8099, targetPort: 8099 }
-    - { name: raft, port: 10000, targetPort: 10000 }
 ---
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata: { name: coordinator }
 spec:
-  serviceName: coordinator
-  replicas: 3                       # one Raft group; odd size for a majority
-  podManagementPolicy: Parallel     # start peers together so the group can form quorum
+  replicas: 2                       # any number; they elect one leader
   selector: { matchLabels: { app: coordinator } }
   template:
     metadata: { labels: { app: coordinator } }
@@ -254,33 +251,28 @@ spec:
           image: hadielmougy/wiggle:2.1.8
           ports:
             - { containerPort: 8099, name: grpc }
-            - { containerPort: 10000, name: raft }
           env:
-            - name: POD_NAME
-              valueFrom: { fieldRef: { fieldPath: metadata.name } }
-            - name: WIGGLE_NODE_NAME
+            - name: WIGGLE_NODE_NAME          # the id it announces in the coordinator roster
               valueFrom: { fieldRef: { fieldPath: metadata.name } }
             - { name: WIGGLE_ROLE, value: "coordinator" }
             - { name: WIGGLE_PORT, value: "8099" }
-            - name: WIGGLE_COORD_STORE
-              value: "ratis:///var/lib/wiggle/coord?peers=coordinator-0@coordinator-0.coordinator:10000,coordinator-1@coordinator-1.coordinator:10000,coordinator-2@coordinator-2.coordinator:10000&id=$(POD_NAME)"
-          volumeMounts:
-            - { name: coord-data, mountPath: /var/lib/wiggle/coord }
+            - { name: WIGGLE_COORD_STORE, value: "jdbc:postgresql://coord-db:5432/wiggle_coord" }
+            - { name: WIGGLE_COORD_JDBC_USER, value: "wiggle" }
+            - name: WIGGLE_COORD_JDBC_PASSWORD
+              valueFrom: { secretKeyRef: { name: coord-db, key: password } }
           readinessProbe:
             tcpSocket: { port: 8099 }
             initialDelaySeconds: 5
             periodSeconds: 3
-  volumeClaimTemplates:
-    - metadata: { name: coord-data }
-      spec:
-        accessModes: [ReadWriteOnce]
-        resources: { requests: { storage: 1Gi } }
-  persistentVolumeClaimRetentionPolicy: { whenDeleted: Delete, whenScaled: Delete }
 ```
 
-The peer list is fixed at deploy time (each pod's `id` is its own name via `$(POD_NAME)`); the
-control-plane state is tiny, so 1Gi is generous. A single-member group (`replicas: 1`, one peer
-in the list) is fine for dev.
+The control-plane database is tiny — placement policy, the cell roster, the definition and
+namespace registries — and separate from every cell's database on purpose: a cell must never know
+about coordinators, and the two are linked by nothing but the gRPC contract. The schema creates
+itself on startup like the engine's does.
+
+Leaving `WIGGLE_COORD_STORE` unset keeps the state in memory instead: one process, nothing to
+install, and nothing surviving a restart. Fine for a laptop or a demo, not for a deployment.
 
 ### C.2 A cell (its own database + cluster)
 

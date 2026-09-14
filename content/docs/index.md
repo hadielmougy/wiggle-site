@@ -11,7 +11,7 @@ over gRPC — your services, in your processes, in your language.
 | If you want to… | Read |
 |---|---|
 | Run something in the next ten minutes | [Onboarding & configuration](onboarding.md) |
-| See every DSL operator in runnable code | [DSL cookbook](dsl-cookbook.md) |
+| See every operator in runnable code | [Cookbook](cookbook.md) |
 | Split one flow's steps across many microservices | [Queues](queues.md) |
 | Understand cells, epochs, and resharding | [Sharding & epochs](sharding-and-epochs.md) |
 | Cut server round-trips for step-heavy flows | [Local execution](local-execution.md) |
