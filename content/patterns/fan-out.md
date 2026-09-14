@@ -18,9 +18,9 @@ interface PricingSteps {
     Order summarise(Order o);
 }
 
-Wiggle.define("price-order", Order.class, PricingSteps.class, (f, s) -> f
+FlowSpec.define("price-order", Order.class, PricingSteps.class, (f, s) -> f
     .thenApply(s::loadOrder)
-    .thenForEach("items", Item.class,            // one isolated branch per element of ctx["items"]
+    .thenForEach(Order::items,                   // one isolated branch per element of Order.items
             item -> item.thenApply(s::price))
     .combine(s::collect)                         // receives the collected results
     .thenApply(s::summarise));
@@ -29,7 +29,7 @@ Wiggle.define("price-order", Order.class, PricingSteps.class, (f, s) -> f
 ## The handlers
 
 ```java
-@Handlers("price-order")
+@ForFlow("price-order")
 class PricingHandlers {
     public Order load(Map<String, Object> ctx) { return repo.load(ctx); }
 
@@ -67,7 +67,7 @@ class PricingHandlers {
 ## Variations
 
 - Pin one step of the body to a different worker pool:
-  `item.thenApply(s::price).thenApply(s::renderThumbnail).onQueue("gpu")` — see
+  `item.thenApply(s::price).thenApply(s::renderThumbnail, "gpu")` — see
   [queues](/docs/queues/).
 - Items can be maps or scalars; `Step.itemIndex()` / `Step.itemMapKey()` expose the element's
   position when the handler needs it.

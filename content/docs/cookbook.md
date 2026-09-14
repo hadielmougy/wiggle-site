@@ -24,7 +24,7 @@ public interface LinearGateSteps {
     void       welcome(Classified c);
 }
 
-@Handlers("tcb-linear-gate")
+@ForFlow("tcb-linear-gate")
 public static final class LinearWithGate implements LinearGateSteps { … }
 ```
 
@@ -52,7 +52,7 @@ The smallest useful pipeline: two transforms, a filter, and a side effect — an
 changes half way through.
 
 ```java
-Wiggle.define("tcb-linear-gate", Signup.class, LinearGateSteps.class, (f, s) -> f
+FlowSpec.define("tcb-linear-gate", Signup.class, LinearGateSteps.class, (f, s) -> f
         .thenApply(s::normalise)
         // classify returns a different record, so the context type changes here; every
         // step after it must consume Classified, and the compiler holds that
@@ -71,7 +71,7 @@ method); the context is unchanged.
 An exclusive branch whose arm itself fans out.
 
 ```java
-Wiggle.define("tcb-choose-fork", Purchase.class, ChooseForkSteps.class, (f, s) -> {
+FlowSpec.define("tcb-choose-fork", Purchase.class, ChooseForkSteps.class, (f, s) -> {
     // the large arm fans out: a fan-out inside a choice arm is just a fan-out whose
     // common point is the guard
     var large  = f.when(s::isLarge);
@@ -103,12 +103,12 @@ guard holds, otherwise skip past it". A single-armed `allOf` is not: there is no
 Dynamic fan-out with mixed worker pools. The element *is* each branch's context.
 
 ```java
-Wiggle.define("tcb-foreach-queues", Basket.class, ForEachSteps.class, (f, s) -> f
+FlowSpec.define("tcb-foreach-queues", Basket.class, ForEachSteps.class, (f, s) -> f
         .defaultQueue("cpu")
-        .thenForEach("items", Item.class, item -> item
+        .thenForEach(Basket::items, item -> item
                 .thenApply(s::price)
                 // only this step moves to the "gpu" queue; the default stays "cpu"
-                .thenApply(s::renderThumbnail).onQueue("gpu"))
+                .thenApply(s::renderThumbnail, "gpu"))
         .combine(s::collectItems)
         .thenApply(s::summarise));
 ```
@@ -116,6 +116,13 @@ Wiggle.define("tcb-foreach-queues", Basket.class, ForEachSteps.class, (f, s) -> 
 The collection is read from the context at run time, so the fan-out width is decided per instance,
 not at definition. Inside the body the **item is the context** — `price` takes an `Item`, not the
 `Basket`. An empty or missing collection skips the body *and* the combine.
+
+`Basket::items` is a reference to the context record's own component, not to a step: nothing runs to
+produce the collection — it is already in the context, put there by the step before. The reference
+gives the key (`items`, exactly as the component is persisted) and the element type (`Item`, from its
+return type), so there is no `Class<E>` to pass and renaming the component carries the key with it.
+Maps and arrays work the same way. When the context is a `Map<String, Object>` there is no accessor
+to reference, so name the key: `thenForEach("items", Item.class, body)`.
 
 The combine's collection parameter decides how results arrive: a `List` keeps order, a `Set`
 deduplicates, a `Map` is keyed like the input.
@@ -125,7 +132,7 @@ deduplicates, a `Map` is keyed like the input.
 Poll-until-ready, with an inner gate short-circuiting a cancelled job.
 
 ```java
-Wiggle.define("tcb-poll-until-ready", Job.class, PollSteps.class, (f, s) -> f
+FlowSpec.define("tcb-poll-until-ready", Job.class, PollSteps.class, (f, s) -> f
         // the body runs once, then the condition is evaluated -- do-while, not while-do
         .repeatWhile(s::stillPending, b -> b
                 // a gate short-circuits to the loop's exit, not just the body: a
@@ -144,7 +151,7 @@ instance with an error naming the loop, rather than spinning forever.
 Wait for a signal, and branch on how the wait resolved.
 
 ```java
-Wiggle.define("tcb-approval-escalation", Expense.class, ApprovalSteps.class, (f, s) -> {
+FlowSpec.define("tcb-approval-escalation", Expense.class, ApprovalSteps.class, (f, s) -> {
     var waited = f
             .thenApply(s::submit)
             // no worker is held while it waits; if nobody signals in time the
@@ -168,7 +175,7 @@ timeout instead of running an escalation branch.
 Compose a registered child workflow into a bigger one.
 
 ```java
-Wiggle.define("tcb-parent", Signup.class, ParentSteps.class, (f, s) -> {
+FlowSpec.define("tcb-parent", Signup.class, ParentSteps.class, (f, s) -> {
     var checked = f
             // runs tcb-linear-gate as a child; its final context merges back here, which
             // is why this continues as Classified
@@ -191,7 +198,7 @@ child's final context, which is why the `Class` argument says what to continue a
 Batched local execution with an explicit flush.
 
 ```java
-Wiggle.define("tcb-batched-loop", Batch.class, BatchedSteps.class, (f, s) -> f
+FlowSpec.define("tcb-batched-loop", Batch.class, BatchedSteps.class, (f, s) -> f
         .execution(ExecutionMode.LOCAL_ASYNC)
         .repeatWhile(s::moreBatches, b -> b
                 .thenApply(s::processBatch)
@@ -210,7 +217,7 @@ A gate, a sub-workflow, a `oneOf` whose arms fan out and fan over a collection, 
 escalation, a checkpointed loop.
 
 ```java
-Wiggle.define("tcb-kitchen-sink", Basket.class, KitchenSinkSteps.class, (f, s) -> {
+FlowSpec.define("tcb-kitchen-sink", Basket.class, KitchenSinkSteps.class, (f, s) -> {
     var ready = f
             .defaultQueue("default")
             .execution(ExecutionMode.LOCAL_SYNC)
@@ -223,7 +230,7 @@ Wiggle.define("tcb-kitchen-sink", Basket.class, KitchenSinkSteps.class, (f, s) -
     var vipArm = Wiggle.allOf(packed, held).combineWithContext(s::priorityMerge);
 
     var standard = ready.otherwise()
-            .thenForEach("pack-items", "items", Item.class, item -> item.thenApply(s::packItem))
+            .thenForEach("pack-items", Basket::items, item -> item.thenApply(s::packItem))
             .combine(s::collectPacked);
 
     return Wiggle.oneOf(vipArm, standard)
@@ -253,5 +260,5 @@ thing.
 | `thenSleep` | 8 |
 | `checkpoint` | 7, 8 |
 | `execution(...)` | 7, 8 |
-| `defaultQueue` / `onQueue` | 3, 8 |
+| per-node queue / `defaultQueue` | 3, 8 |
 | `RetryPolicy` per step | 2, 8 |

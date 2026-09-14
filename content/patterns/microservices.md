@@ -21,26 +21,26 @@ interface OrderSteps {                         // one declaration, shared by eve
     void  email(Order o);
 }
 
-FlowSpec orders = Wiggle.define("orders", Order.class, OrderSteps.class, (f, s) -> f
-        .thenApply(s::validate).onQueue("orders")          // queue: orders service
-        .thenApply(s::charge).onQueue("payments")          // queue: payments service
-        .thenApply(s::renderReceipt).onQueue("gpu")        // queue: the GPU pool
-        .thenAccept(s::email).onQueue("notify"));          // queue: notifications
+FlowSpec orders = FlowSpec.define("orders", Order.class, OrderSteps.class, (f, s) -> f
+        .thenApply(s::validate, "orders")                  // queue: orders service
+        .thenApply(s::charge, "payments")                  // queue: payments service
+        .thenApply(s::renderReceipt, "gpu")                // queue: the GPU pool
+        .thenAccept(s::email, "notify"));                  // queue: notifications
 ```
 
 Four separate processes — deployed, scaled, and owned independently:
 
 ```java
 // payments-service (Java)
-new Worker(client, "payments-1").register(orders)
-        .handlers(new PaymentHandlers())        // only charge() matches a step it serves
+new Worker(client, "payments-1")
+        .registerHandler(new PaymentHandlers())   // only charge() matches a step it serves
         .start();
 ```
 
 ```go
 // notifications-service (Go) — same instance, different language
-w := wiggle.NewWorker(client, "notify-1",
-    wiggle.Register(orders), wiggle.Handlers(NotifyHandlers{}))
+w := wiggle.NewWorker(client, "notify-1").
+    RegisterHandlers("order-fulfilment", NotifyHandlers{})
 ```
 
 The server dispatches each step to its queue; whichever worker serves that queue pulls it. The

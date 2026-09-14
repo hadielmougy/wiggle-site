@@ -23,7 +23,7 @@ interface OrderSteps {                       // the steps, as a contract
     Order   notify(Order o);
 }
 
-FlowSpec orders = Wiggle.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> {
+FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> {
     var checked = f.thenApply(s::validate)
             .thenFilter(s::inStock);         // false ⇒ the instance ends cleanly
 
@@ -42,7 +42,7 @@ FlowSpec orders = Wiggle.define("order-fulfilment", Order.class, OrderSteps.clas
 ## The handlers
 
 ```java
-@Handlers("order-fulfilment")
+@ForFlow("order-fulfilment")
 class OrderHandlers implements OrderSteps {      // the same contract the spec named
     public Order   validate(Order o)     { return o.withStatus("VALIDATED"); }
     public boolean inStock(Order o)      { return o.quantity() > 0; }

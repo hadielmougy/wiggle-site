@@ -19,7 +19,7 @@ interface ExpenseSteps {
     Expense payOut(Expense e);
 }
 
-Wiggle.define("expense-approval", Expense.class, ExpenseSteps.class, (f, s) -> {
+FlowSpec.define("expense-approval", Expense.class, ExpenseSteps.class, (f, s) -> {
     var waited = f.thenApply(s::submit)
             .thenAwait("manager-approval", Duration.ofHours(48),
                     esc -> esc.thenApply(s::autoEscalate));   // runs only if the deadline passes
@@ -35,7 +35,7 @@ Wiggle.define("expense-approval", Expense.class, ExpenseSteps.class, (f, s) -> {
 ## The handlers
 
 ```java
-@Handlers("expense-approval")
+@ForFlow("expense-approval")
 class ExpenseHandlers {
     public Expense submit(Expense e)       { return e.withState("PENDING_APPROVAL"); }
 

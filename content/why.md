@@ -34,7 +34,7 @@ A business process is described as a **graph** — named steps and how they chai
 rejoin — and that graph, not any function, is what the server owns:
 
 ```java
-FlowSpec orders = Wiggle.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> {
+FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> {
     var checked = f.thenApply(s::validate)
             .thenFilter(s::inStock);         // false ⇒ the instance ends cleanly
 

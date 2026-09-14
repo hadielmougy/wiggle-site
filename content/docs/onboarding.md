@@ -177,7 +177,7 @@ A definition compiles to pure **topology** — named nodes and their wiring. Wha
 is a `FlowSpec`: the graph, and nothing else. There are two ways to write one, and they differ only
 in where the step names come from.
 
-**`Wiggle.define` — when the steps can be declared as a contract.** Declare them as an interface and
+**`FlowSpec.define` — when the steps can be declared as a contract.** Declare them as an interface and
 name them through it, and the compiler checks that every step consumes what the one before it
 produced, while a rename carries the step name with it:
 
@@ -190,7 +190,7 @@ interface OrderSteps {
     ...
 }
 
-FlowSpec orders = Wiggle.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> {
+FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> {
     var validated = f.thenApply(s::validate).thenFilter(s::inStock);
 
     var payment  = validated.thenApply(s::authorise, RetryPolicy.exponential(5, ofMillis(100)))
@@ -237,17 +237,17 @@ public interface OrderSteps {
 }
 
 // the author registers this without implementing a single step
-FlowSpec orders = Wiggle.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> { … });
+FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> { … });
 ```
 
-The step logic is a separate class annotated `@Handlers("<workflow-name>")`, bound on a worker by
+The step logic is a separate class annotated `@ForFlow("<workflow-name>")`, bound on a worker by
 name. Each method whose name matches a step (case/style-insensitive, so `inStock` serves `in-stock`)
 is a handler; its signature defines the step — one parameter is the input (decoded from JSON), a
 `boolean` return is a gate, `void` is an effect, any other return is a task whose value becomes the
 next context (types may change from step to step, like `Stream.map`):
 
 ```java
-@Handlers("order-fulfilment")
+@ForFlow("order-fulfilment")
 class OrderHandlers {
     public Order   validate(Order o)  { return o.withStatus("VALIDATED"); }
     public boolean inStock(Order o)   { return o.quantity() > 0; }        // gate
@@ -260,7 +260,7 @@ class OrderHandlers {
 ```
 
 Publish it with `client.register(orders)`, and bind the steps on a worker with
-`new Worker(client, "w").handlers(new OrderHandlers())` — the worker fetches the graph and matches
+`new Worker(client, "w").registerHandler(new OrderHandlers())` — the worker fetches the graph and matches
 against it; it is never given the topology.
 A `combine` node (`merge`) must have an explicit handler — a method taking **one parameter per
 fork arm, in fork order** (each branch's result), plus an optional `@Context` parameter (the
@@ -270,26 +270,25 @@ worker fails its task, and keys the handler does not return do not survive the j
 
 ### 5.1 Operations
 
-Every operation is topology only — it names a node; the matching `@Handlers` method supplies its logic.
+Every operation is topology only — it names a node; the matching `@ForFlow` method supplies its logic.
 
 | Operation | Meaning |
 |---|---|
-| `step(name)` / `step(name, retry)` / `then(...)` | run the step's handler on a worker; its result becomes the new context |
-| `effect(name)` | the handler runs for a side effect (a `void` method); context unchanged |
-| `gate(name)` | continue only while the guard handler returns true; false ends the instance as `gated:<name>` |
-| `choose(when(...), …, otherwise(...))` | switch/case: first matching guard's branch runs |
-| `fork(branches…).combine(name)` | run branches in parallel on isolated context copies, then rejoin at the mandatory `combine` |
-| `forEach(itemsKey, body).combine(name)` | runtime fan-out: one **isolated** branch per element of the list (or map) at `itemsKey`. **The element IS the item's context** — body handlers take the item's value (scalars included) and their return replaces it; the frozen base is available **either way — your choice**: declare a `@Context` parameter, or call `Step.base()` (the position/source key at `Step.itemIndex()`/`Step.itemMapKey()`). Combines get the same choice: `@Context` parameter or `Step.base()`. The **mandatory** combine receives `@Context` plus the collected final values (`List`/`Set` for a list input, `Map` keyed like a map input) and returns the complete post-join context. `forEach(name, itemsKey, body)` names the node explicitly |
-| `doWhile(name, body)` | run `body`, then repeat while the guard handler named `name` holds (at least once) |
-| `sleep(name, duration)` | server-side timer; holds no worker |
-| `awaitSignal(name[, timeout[, escalation]])` | wait for a named external signal; optional deadline escalates or fails |
-| `subWorkflow(name, workflow)` | run another workflow as a child; result merges back, failure propagates |
-| `step(name, queue)` / `defaultQueue(q)` | route a step (or every following step) to a dedicated worker pool |
+| `thenApply(s::step)` | run the step's handler on a worker; its result becomes the new context |
+| `thenAccept(s::step)` | the handler runs for a side effect (a `void` method); context unchanged |
+| `thenFilter(s::guard)` | continue only while the guard returns true; false ends the instance as `gated:<name>` |
+| `Wiggle.oneOf(arms…)` + `when` / `otherwise` | switch/case: the first arm whose guard holds runs. Every arm opens with `f.when(s::guard)` or `f.otherwise()`; a single arm is legal and reads as "run this, or skip past it" |
+| `Wiggle.allOf(arms…).combine(s::merge)` | run arms in parallel on **isolated** context copies, then rejoin at the mandatory combine. Arms bind **by position**, in the order given to `allOf`; `combineWithContext` also takes the pre-fork context as a leading `@Context` parameter |
+| `thenForEach(Ctx::items, body).combine(s::collect)` | runtime fan-out: one **isolated** branch per element of the list (or map) at `itemsKey`. **The element IS the item's context** — body handlers take the item's value (scalars included) and their return replaces it; the frozen base is available **either way — your choice**: declare a `@Context` parameter, or call `Step.base()` (the position/source key at `Step.itemIndex()`/`Step.itemMapKey()`). Combines get the same choice. The **mandatory** combine receives the collected final values (`List`/`Set` for a list input, `Map` keyed like a map input) and returns the complete post-join context. `thenForEach(name, Ctx::items, …)` names the node explicitly. The accessor is a reference to the **context's own component** — it gives both the key and the element type, so no `Class<E>` is needed and a renamed component carries the key with it. Lists, maps and arrays all work. Use the string form `thenForEach("items", Item.class, body)` when the context is a `Map<String, Object>`, which has no accessor to reference |
+| `repeatWhile(s::guard, body)` | run `body`, then repeat while the guard holds (at least once). `repeatWhile(guard, maxIterations, body)` caps it; a trailing `"queue"` pins the condition |
+| `thenSleep(duration)` / `thenSleep(name, duration)` | server-side timer; holds no worker |
+| `thenAwait(name[, timeout[, escalation]])` | wait for a named external signal; optional deadline escalates or fails |
+| `thenSubFlow(node, workflow, Result.class)` | run another workflow as a child; its result merges back, failure propagates |
+| a trailing `"queue"` argument / `defaultQueue(q)` | route one node (or every following step) to a dedicated worker pool |
 | `execution(mode)` | set the execution mode ([§6.4](#64-execution-modes)) |
 | `checkpoint()` | (LOCAL_ASYNC) flush this step to the server before the next runs |
-| `build()` | produce the `FlowSpec` |
 
-`step`/`effect`/`gate` take an optional trailing `RetryPolicy`. The context type is not fixed by the
+Retry and queue are trailing arguments on the call that creates the node, in either order, so they travel *with* the step they configure — there is no separate call to forget. A node you named with a handler takes both (`thenApply`, `thenAccept`, `thenFilter`, `thenApplyCompensable`, `when`, and the `combine` of an `allOf` or a `thenForEach`). A node a construct creates for you takes only the queue: `repeatWhile`'s condition, whose retry stays the workflow default. Omitting a retry never leaves a node bare — it inherits the default given to `FlowSpec.define`. The context type is not fixed by the
 definition — each handler picks the type it works in by its signature (a typed record, or a
 `Map<String, Object>` for raw JSON), and a method may return a different type than it takes.
 
@@ -302,7 +301,7 @@ wherever a step or combine parameter of that type is bound. It's the seam for sc
 or a bespoke codec:
 
 ```java
-@Handlers("order-fulfilment")
+@ForFlow("order-fulfilment")
 class OrderHandlers {
     @Decode
     public Order load(Map<String, Object> raw) {     // upcast an older shape to the current Order
@@ -349,8 +348,8 @@ version of the workflow they bind, which is almost always what you want: step na
 across versions, so one implementation covers them all. Pass a version to narrow that:
 
 ```java
-new Worker(client, "service-a").handlers(new OrderHandlers(), v1.version());  // claims only v1
-new Worker(client, "service-b").handlers(new OrderHandlers(), v2.version());  // claims only v2
+new Worker(client, "service-a").registerHandler(new OrderHandlers(), v1.version());  // claims only v1
+new Worker(client, "service-b").registerHandler(new OrderHandlers(), v2.version());  // claims only v2
 ```
 
 A scoped worker filters its claim by `(workflow, version)`, so it will not pick up another
@@ -402,7 +401,7 @@ variables in [§6.7](#67-example-worker--benchmark-variables) are conventions of
 | `WIGGLE_HOUSEKEEPING_BATCH` | `wiggle.housekeeping.batch` | `100` | max items a housekeeping sweep processes per tick |
 | `WIGGLE_ADAPTIVE_HOUSEKEEPING` | `wiggle.adaptive.housekeeping` | `false` | a sweep that fills its batch runs again immediately (drain mode) — removes the batch÷tick promotion ceiling under backlog (measured: 100 → ~1,700 timers/sec at defaults); idle cost unchanged |
 | `WIGGLE_ADAPTIVE_FALLBACK_POLL` | `wiggle.adaptive.fallback` | `false` | freshly-parked long-polls re-claim quickly (fallback÷4) and decay to the configured interval — cuts cross-node dispatch latency in a multi-node cluster (measured: p50 105 → 30 ms); idle DB cost bounded |
-| `WIGGLE_LOOP_MAX_ITERATIONS` | `wiggle.loop.max.iterations` | `10000` | default `doWhile` budget — a loop guard may evaluate true at most this many times before the instance FAILS with a clear error; per-loop override via `doWhile(name, maxIterations, body)` |
+| `WIGGLE_LOOP_MAX_ITERATIONS` | `wiggle.loop.max.iterations` | `10000` | default `repeatWhile` budget — a loop guard may evaluate true at most this many times before the instance FAILS with a clear error; per-loop override via `repeatWhile(guard, maxIterations, body)` |
 | `WIGGLE_QUEUE_LAG_CHECK_INTERVAL_MILLIS` | `wiggle.queueLag.checkIntervalMillis` | `5000` | how often the leader checks the backlog ([§7.6](#76-queue-lag-monitoring)) |
 | `WIGGLE_QUEUE_LAG_WARN_MILLIS` | `wiggle.queueLag.warnThresholdMillis` | `10000` | WARN once the backlog isn't draining within this budget |
 
@@ -590,13 +589,13 @@ rows and loses.
 
 ### 7.3 Signals, sub-workflows and schedules
 
-`awaitSignal(name)` parks an instance until the named signal arrives; no worker is held. Deliver
+`thenAwait(name)` parks an instance until the named signal arrives; no worker is held. Deliver
 via `client.signal(instanceId, name, payload)` (gRPC), the console's Signals tab, or
 `POST /api/instances/{id}/signal/{name}` (JSON body merges into the context). Optional deadline:
-`awaitSignal(name, timeout)` fails the instance on timeout; the three-arg form runs an escalation
+`thenAwait(name, timeout)` fails the instance on timeout; the three-arg form runs an escalation
 branch instead. Signals are not buffered -- an early delivery is a retryable conflict.
 
-`subWorkflow(name, workflow)` runs a registered workflow as a child with the parent's context;
+`thenSubFlow(node, workflow, Result.class)` runs a registered workflow as a child with the parent's context;
 its final context merges back, its failure/cancellation fails the parent, and cancelling the
 parent cascades to children.
 
