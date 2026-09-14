@@ -960,14 +960,19 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
 
       <div class="code-pane active" id="java">
 <pre><span class="c-com">// A complete, durable, parallel workflow — a compiled graph the server owns.</span>
-<span class="c-kw">FlowSpec</span> orders = Wiggle.<span class="c-fn">graph</span>(<span class="c-str">"order-fulfilment"</span>)
-        .<span class="c-fn">step</span>(<span class="c-str">"validate"</span>)
-        .<span class="c-fn">gate</span>(<span class="c-str">"in-stock"</span>)
-        .<span class="c-fn">fork</span>(Branch.<span class="c-fn">of</span>(<span class="c-str">"payment"</span>,  s -&gt; s.<span class="c-fn">step</span>(<span class="c-str">"authorise"</span>).<span class="c-fn">step</span>(<span class="c-str">"capture"</span>)),
-              Branch.<span class="c-fn">of</span>(<span class="c-str">"shipping"</span>, s -&gt; s.<span class="c-fn">step</span>(<span class="c-str">"reserve-stock"</span>).<span class="c-fn">step</span>(<span class="c-str">"print-label"</span>)))
-        .<span class="c-fn">combine</span>(<span class="c-str">"merge"</span>)
-        .<span class="c-fn">step</span>(<span class="c-str">"notify"</span>)
-        .<span class="c-fn">build</span>();</pre>
+<span class="c-kw">interface</span> OrderSteps { <span class="c-kw">Order</span> <span class="c-fn">validate</span>(<span class="c-kw">Order</span> o); <span class="c-kw">boolean</span> <span class="c-fn">inStock</span>(<span class="c-kw">Order</span> o); <span class="c-com">/* … */</span> }
+
+<span class="c-kw">FlowSpec</span> orders = Wiggle.<span class="c-fn">define</span>(<span class="c-str">"order-fulfilment"</span>, Order.class, OrderSteps.class, (f, s) -&gt; {
+    <span class="c-kw">var</span> checked  = f.<span class="c-fn">thenApply</span>(s::validate).<span class="c-fn">thenFilter</span>(s::inStock);
+
+    <span class="c-com">// continuing `checked` twice is the fan-out; the arms run on isolated copies</span>
+    <span class="c-kw">var</span> payment  = checked.<span class="c-fn">thenApply</span>(s::authorise).<span class="c-fn">thenApply</span>(s::capture);
+    <span class="c-kw">var</span> shipping = checked.<span class="c-fn">thenApply</span>(s::reserveStock).<span class="c-fn">thenApply</span>(s::printLabel);
+
+    <span class="c-kw">return</span> Wiggle.<span class="c-fn">allOf</span>(payment, shipping)
+            .<span class="c-fn">combineWithContext</span>(s::merge)   <span class="c-com">// rejoining is always explicit</span>
+            .<span class="c-fn">thenApply</span>(s::notify);
+});</pre>
       </div>
 
       <div class="code-pane" id="go">

@@ -12,19 +12,31 @@ production.
 ## The topology
 
 ```java
-FlowSpec orders = Wiggle.graph("order-fulfilment")
-        .step("validate")
-        .gate("in-stock")                    // false ⇒ the instance ends cleanly
-        .fork(
-            Branch.of("payment", s -> s
-                .step("authorise", RetryPolicy.exponential(5, Duration.ofMillis(100)))
-                .step("capture")),
-            Branch.of("shipping", s -> s
-                .step("reserve-stock")
-                .step("print-label")))
-        .combine("merge")                    // mandatory — there is no implicit join
-        .step("notify")
-        .build();
+interface OrderSteps {                       // the steps, as a contract
+    Order   validate(Order o);
+    boolean inStock(Order o);
+    Order   authorise(Order o);
+    Order   capture(Order o);
+    Order   reserveStock(Order o);
+    Order   printLabel(Order o);
+    Order   merge(@Context Order base, Order payment, Order shipping);
+    Order   notify(Order o);
+}
+
+FlowSpec orders = Wiggle.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> {
+    var checked = f.thenApply(s::validate)
+            .thenFilter(s::inStock);         // false ⇒ the instance ends cleanly
+
+    // continuing `checked` twice is the fan-out
+    var payment  = checked.thenApply(s::authorise, RetryPolicy.exponential(5, Duration.ofMillis(100)))
+                          .thenApply(s::capture);
+    var shipping = checked.thenApply(s::reserveStock)
+                          .thenApply(s::printLabel);
+
+    return Wiggle.allOf(payment, shipping)
+            .combineWithContext(s::merge)    // mandatory — there is no implicit join
+            .thenApply(s::notify);
+});
 ```
 
 ## The handlers

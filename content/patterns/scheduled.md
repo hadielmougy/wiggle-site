@@ -13,11 +13,16 @@ Schedules are server-side objects that start a fresh instance of a registered wo
 expression or a fixed interval:
 
 ```java
-FlowSpec report = Wiggle.graph("nightly-report")
-        .step("gather")
-        .step("render")
-        .effect("distribute")
-        .build();
+interface ReportSteps {
+    Report gather(Report r);
+    Report render(Report r);
+    void   distribute(Report r);
+}
+
+FlowSpec report = Wiggle.define("nightly-report", Report.class, ReportSteps.class, (f, s) -> f
+        .thenApply(s::gather)
+        .thenApply(s::render)
+        .thenAccept(s::distribute));
 client.register(report);
 
 // cron: 03:00 every day (server clock), optional payload for the started instances

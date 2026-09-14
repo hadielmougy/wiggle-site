@@ -14,7 +14,7 @@ mid-step.
 ### 1. Transient failures → a retry policy on the step
 
 ```java
-.step("authorise", RetryPolicy.exponential(5, Duration.ofMillis(100)))
+.thenApply(s::authorise, RetryPolicy.exponential(5, Duration.ofMillis(100)))
 ```
 
 The handler just throws. The engine re-dispatches with exponential backoff, up to the cap; the
@@ -39,13 +39,12 @@ A gate separates *"this order shouldn't proceed"* (a normal outcome) from *"some
 ### 3. External dependency not ready → poll with `doWhile`
 
 ```java
-Wiggle.graph("await-settlement")
-    .doWhile("still-pending", b -> b
-        .gate("not-cancelled")             // false short-circuits OUT of the loop entirely
-        .step("poll")
-        .sleep("backoff", Duration.ofSeconds(30)))   // parked server-side, no worker held
-    .step("finish")
-    .build();
+Wiggle.define("await-settlement", Ctx.class, SettlementSteps.class, (f, s) -> f
+    .repeatWhile(s::stillPending, b -> b
+        .thenFilter(s::notCancelled)       // false short-circuits OUT of the loop entirely
+        .thenApply(s::poll)
+        .thenSleep("backoff", Duration.ofSeconds(30)))   // parked server-side, no worker held
+    .thenApply(s::finish));
 ```
 
 ```java

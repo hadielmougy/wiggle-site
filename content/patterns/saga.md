@@ -20,11 +20,16 @@ The undo is **declared in the graph** — a reviewer sees which steps compensate
 not by hunting through handler code:
 
 ```java
-FlowSpec booking = Wiggle.graph("booking")
-        .step("reserve-stock").compensate()      // has an undo
-        .step("charge-card").compensate()        // has an undo
-        .step("book-courier")                    // no undo: nothing external to unwind
-        .build();
+interface BookingSteps {
+    Booking reserveStock(Booking b);
+    Booking chargeCard(Booking b);
+    Booking bookCourier(Booking b);
+}
+
+FlowSpec booking = Wiggle.define("booking", Booking.class, BookingSteps.class, (f, s) -> f
+        .thenApply(s::reserveStock).compensate()   // has an undo
+        .thenApply(s::chargeCard).compensate()     // has an undo
+        .thenApply(s::bookCourier));               // no undo: nothing external to unwind
 ```
 
 ## The handlers

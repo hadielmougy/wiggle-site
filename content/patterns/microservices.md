@@ -14,12 +14,18 @@ that imports everyone's code.
 Each step names a **queue**; each service runs a worker subscribed only to its queues:
 
 ```java
-FlowSpec orders = Wiggle.graph("orders")
-        .step("validate", "orders")            // queue: orders service
-        .step("charge", "payments")            // queue: payments service
-        .step("render-receipt", "gpu")         // queue: the GPU pool
-        .effect("email", "notify")             // queue: notifications
-        .build();
+interface OrderSteps {                         // one declaration, shared by every service
+    Order validate(Order o);
+    Order charge(Order o);
+    Order renderReceipt(Order o);
+    void  email(Order o);
+}
+
+FlowSpec orders = Wiggle.define("orders", Order.class, OrderSteps.class, (f, s) -> f
+        .thenApply(s::validate).onQueue("orders")          // queue: orders service
+        .thenApply(s::charge).onQueue("payments")          // queue: payments service
+        .thenApply(s::renderReceipt).onQueue("gpu")        // queue: the GPU pool
+        .thenAccept(s::email).onQueue("notify"));          // queue: notifications
 ```
 
 Four separate processes — deployed, scaled, and owned independently:

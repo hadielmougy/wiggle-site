@@ -11,13 +11,19 @@ merge) is exactly the fragile plumbing a workflow engine should own.
 ## The topology
 
 ```java
-Wiggle.graph("price-order")
-    .step("load-order")
-    .forEach("charge-items", "items", b -> b     // one isolated branch per element of ctx["items"]
-        .step("price"))
-    .combine("collect")                          // receives the collected results
-    .step("summarise")
-    .build();
+interface PricingSteps {
+    Order loadOrder(Order o);
+    Item  price(Item item);                      // the element IS each branch's context
+    Order collect(@Context Order base, List<Item> priced);
+    Order summarise(Order o);
+}
+
+Wiggle.define("price-order", Order.class, PricingSteps.class, (f, s) -> f
+    .thenApply(s::loadOrder)
+    .thenForEach("items", Item.class,            // one isolated branch per element of ctx["items"]
+            item -> item.thenApply(s::price))
+    .combine(s::collect)                         // receives the collected results
+    .thenApply(s::summarise));
 ```
 
 ## The handlers

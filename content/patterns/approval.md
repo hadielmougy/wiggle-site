@@ -11,14 +11,25 @@ never. Holding a worker thread (or any process resource) for that wait is absurd
 ## The topology
 
 ```java
-Wiggle.graph("expense-approval")
-    .step("submit")
-    .awaitSignal("manager-approval", Duration.ofHours(48),
-        esc -> esc.step("auto-escalate"))            // runs only if the deadline passes
-    .choose(
-        Case.when("was-escalated", b -> b.effect("notify-director")),
-        Case.otherwise("approved-path", b -> b.step("pay-out")))
-    .build();
+interface ExpenseSteps {
+    Expense submit(Expense e);
+    Expense autoEscalate(Expense e);
+    boolean wasEscalated(Expense e);
+    void    notifyDirector(Expense e);
+    Expense payOut(Expense e);
+}
+
+Wiggle.define("expense-approval", Expense.class, ExpenseSteps.class, (f, s) -> {
+    var waited = f.thenApply(s::submit)
+            .thenAwait("manager-approval", Duration.ofHours(48),
+                    esc -> esc.thenApply(s::autoEscalate));   // runs only if the deadline passes
+
+    // exactly one of these runs; both arms end at Expense, which is what lets oneOf return one
+    var escalated = waited.when(s::wasEscalated).thenAccept(s::notifyDirector);
+    var approved  = waited.otherwise().thenApply(s::payOut);
+
+    return Wiggle.oneOf(escalated, approved);
+});
 ```
 
 ## The handlers

@@ -34,23 +34,25 @@ A business process is described as a **graph** — named steps and how they chai
 rejoin — and that graph, not any function, is what the server owns:
 
 ```java
-FlowSpec orders = Wiggle.graph("order-fulfilment")
-        .step("validate")
-        .gate("in-stock")                    // false ⇒ the instance ends cleanly
-        .fork(
-            Branch.of("payment", s -> s
-                .step("authorise", RetryPolicy.exponential(5, Duration.ofMillis(100)))
-                .step("capture")),
-            Branch.of("shipping", s -> s
-                .step("reserve-stock")
-                .step("print-label")))
-        .combine("merge")                    // branches rejoin at an explicit merge step
-        .step("notify")
-        .build();
+FlowSpec orders = Wiggle.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> {
+    var checked = f.thenApply(s::validate)
+            .thenFilter(s::inStock);         // false ⇒ the instance ends cleanly
+
+    // continuing `checked` twice is the fan-out; the arms run on isolated copies
+    var payment  = checked.thenApply(s::authorise, RetryPolicy.exponential(5, Duration.ofMillis(100)))
+                          .thenApply(s::capture);
+    var shipping = checked.thenApply(s::reserveStock)
+                          .thenApply(s::printLabel);
+
+    return Wiggle.allOf(payment, shipping)
+            .combineWithContext(s::merge)    // branches rejoin at an explicit merge step
+            .thenApply(s::notify);
+});
 ```
 
-Nothing in that snippet executes. `build()` compiles a graph, and registering it ships the graph
-to the server as data. A running instance is a set of **tokens** positioned on the graph, in the
+Nothing in that snippet executes. The chain is walked once at definition time and compiled to a
+graph; `s` is an inert stand-in that only lets the body *name* its steps, and registering the result
+ships the graph to the server as data. A running instance is a set of **tokens** positioned on the graph, in the
 spirit of a Petri net — and every token is a row in a database.
 
 Recovery, in this model, is almost embarrassingly boring. There is no history to replay and no
