@@ -19,6 +19,10 @@ So the page no longer owns that code. A region of real, compiled source in the m
 Lines between `// docs:skip` and `// docs:resume` inside a region are dropped -- the scaffolding a
 fixture needs to compile (injected fields, throwaway interfaces) is not what a page is teaching.
 
+`// docs:elide` emits `...` in its place, and `// docs:elide <text>` emits that text. It is the
+honest form of skip: use it where a doc deliberately abridges, so the reader sees that something was
+left out instead of reading a class that looks complete and is not.
+
 and the page marks where each region goes:
 
     <!-- snippet: saga/handlers -->
@@ -51,6 +55,17 @@ SOURCES = {
     # way); resolving them here keeps one behaviour for every marker and needs no ordering between
     # the two repos' scripts
     "cookbook": WIGGLE / "example/src/main/java/com/wiggle/cookbook/Cookbook.java",
+    "cookbook-contract": FIXTURES / "CookbookContract.java",
+    "saga-doc": FIXTURES / "SagaDocSnippet.java",
+    "saga-doc-activity": FIXTURES / "CapturePayment.java",
+    "saga-doc-handlers": FIXTURES / "SagaDocHandlers.java",
+    "onboarding": FIXTURES / "onboarding/OnboardingSnippet.java",
+    "onboarding-handlers": FIXTURES / "onboarding/OrderHandlers.java",
+    "decode": FIXTURES / "decode/OrderHandlers.java",
+    "queues": FIXTURES / "QueuesSnippet.java",
+    "local-execution": FIXTURES / "LocalExecutionSnippet.java",
+    "id-codec": WIGGLE / "core/src/main/java/com/wiggle/core/IdCodec.java",
+    "coordinated-connection": WIGGLE / "client/src/main/java/com/wiggle/client/CoordinatedConnection.java",
     "saga": FIXTURES / "SagaSnippet.java",
     "saga-handlers": FIXTURES / "BookingHandlers.java",
     "fork-join": FIXTURES / "ForkJoinSnippet.java",
@@ -91,10 +106,14 @@ def regions(path):
             out[name] = dedent(buf)
             name = None
         elif name is not None:
+            elide = re.match(r"(\s*)// docs:elide(?: (.*))?\s*$", line)
             if re.match(r"\s*// docs:skip\s*$", line):
                 skipping = True
             elif re.match(r"\s*// docs:resume\s*$", line):
                 skipping = False
+            elif elide:
+                if not skipping:
+                    buf.append(elide.group(1) + (elide.group(2) or "..."))
             elif not skipping:
                 buf.append(line)
     if name:
