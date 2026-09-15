@@ -55,6 +55,8 @@ SOURCES = {
     # way); resolving them here keeps one behaviour for every marker and needs no ordering between
     # the two repos' scripts
     "cookbook": WIGGLE / "example/src/main/java/com/wiggle/cookbook/Cookbook.java",
+    "tutorial": WIGGLE / "example/src/main/java/com/wiggle/tutorial/Orders.java",
+    "tutorial-handlers": WIGGLE / "example/src/main/java/com/wiggle/tutorial/OrderHandlers.java",
     "cookbook-contract": FIXTURES / "CookbookContract.java",
     "saga-doc": FIXTURES / "SagaDocSnippet.java",
     "saga-doc-activity": FIXTURES / "CapturePayment.java",

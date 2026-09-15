@@ -32,7 +32,7 @@ FlowSpec pricing = FlowSpec.define("price-order", Order.class, PricingSteps.clas
 <!-- snippet: fan-out-handlers/handlers -->
 ```java
 @ForFlow("price-order")
-class PricingHandlers {
+class PricingHandlers implements PricingSteps {
 
     public Order loadOrder(Order o) { return repo.load(o); }
 

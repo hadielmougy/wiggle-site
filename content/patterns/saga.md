@@ -49,7 +49,7 @@ live in **one class**, and the compiler checks the pairing rather than a string 
 <!-- snippet: saga-handlers/handlers -->
 ```java
 @ForFlow("booking")
-class BookingHandlers {
+class BookingHandlers implements BookingSteps {
 
     public CompensableActivity<Booking, Booking> reserveStock() {
         return new CompensableActivity<>() {
