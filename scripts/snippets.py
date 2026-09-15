@@ -184,7 +184,43 @@ def rewrite(page, cache):
     return "\n".join(out) + "\n", count
 
 
+VERSION_IN_BUILD = re.compile(r'^\s*version\s*=\s*"([\d.]+)"', re.M)
+# what a page tells a reader to depend on or run
+VERSION_REF = re.compile(r"(?:sh\.wiggle:[\w-]+|(?:ghcr\.io/)?hadielmougy/wiggle):([\d.]+)")
+
+
+def check_versions():
+    """Every version a page names must be the one the main repo currently declares.
+
+    Site-only pages hardcode it -- a dependency coordinate, a docker tag -- and nothing else
+    checks them, so a release bumps the build and the vendored docs and leaves the tutorials
+    quietly one version behind. That is not cosmetic: 0.0.5 added PostgresStorageFactory, so a
+    tutorial still saying 0.0.4 told readers to depend on an artifact without the class the page
+    is built around.
+    """
+    build = WIGGLE / "build.gradle.kts"
+    if not build.exists():
+        sys.exit(f"snippets: cannot read the declared version: no such file {build}")
+    m = VERSION_IN_BUILD.search(build.read_text())
+    if not m:
+        sys.exit("snippets: no `version = \"...\"` in the main repo's build.gradle.kts")
+    current = m.group(1)
+
+    stale = []
+    for page in sorted(ROOT.glob("content/**/*.md")):
+        for i, line in enumerate(page.read_text().splitlines(), 1):
+            for found in VERSION_REF.findall(line):
+                if found != current:
+                    stale.append(f"  {page.relative_to(ROOT)}:{i}: {found} (declared: {current})")
+    if stale:
+        sys.exit("snippets: pages name a version the main repo does not declare:\n"
+                 + "\n".join(stale)
+                 + f"\n  fix: update them to {current}, or re-run after syncing the docs")
+    return current
+
+
 def main():
+    current = check_versions()
     cache, total, touched = {}, 0, []
     for page in sorted(ROOT.glob("content/**/*.md")):
         text = page.read_text()
@@ -198,7 +234,8 @@ def main():
     if total == 0:
         sys.exit("snippets: no snippet markers found in content/ -- markers renamed or lost?")
     print(f"snippets: {total} block(s) from compiled source"
-          + (f"; rewrote {', '.join(str(p) for p in touched)}" if touched else "; all current"))
+          + (f"; rewrote {', '.join(str(p) for p in touched)}" if touched else "; all current")
+          + f"; versions name {current}")
 
 
 if __name__ == "__main__":
