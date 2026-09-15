@@ -13,6 +13,7 @@ mid-step.
 
 ### 1. Transient failures → a retry policy on the step
 
+<!-- snippet: retries/retry-line -->
 ```java
 .thenApply(s::authorise, RetryPolicy.exponential(5, Duration.ofMillis(100)))
 ```
@@ -23,12 +24,14 @@ retry. The policy lives in the topology — reviewable, and shown on the console
 
 ### 2. Business-level "stop" → a gate
 
+<!-- snippet: retries/gate-chain -->
 ```java
 .thenApply(s::validate)
 .thenFilter(s::inStock)    // false ⇒ the instance ENDS CLEANLY — not an error, no alarm
 .thenApply(s::charge)
 ```
 
+<!-- snippet: retries-handlers/gate-handler -->
 ```java
 public boolean inStock(Order o) { return o.quantity() > 0; }
 ```
@@ -38,15 +41,17 @@ A gate separates *"this order shouldn't proceed"* (a normal outcome) from *"some
 
 ### 3. External dependency not ready → poll with `repeatWhile`
 
+<!-- snippet: retries/poll-loop -->
 ```java
-FlowSpec.define("await-settlement", Ctx.class, SettlementSteps.class, (f, s) -> f
-    .repeatWhile(s::stillPending, b -> b
-        .thenFilter(s::notCancelled)       // false short-circuits OUT of the loop entirely
-        .thenApply(s::poll)
-        .thenSleep("backoff", Duration.ofSeconds(30)))   // parked server-side, no worker held
-    .thenApply(s::finish));
+FlowSpec settling = FlowSpec.define("await-settlement", Ctx.class, SettlementSteps.class, (f, s) -> f
+        .repeatWhile(s::stillPending, b -> b
+                .thenFilter(s::notCancelled)       // false short-circuits OUT of the loop entirely
+                .thenApply(s::poll)
+                .thenSleep("backoff", Duration.ofSeconds(30)))   // parked server-side, no worker held
+        .thenApply(s::finish));
 ```
 
+<!-- snippet: retries-handlers/poll-handlers -->
 ```java
 public boolean stillPending(Ctx c)  { return !c.ready(); }      // loop condition, after each pass
 public boolean notCancelled(Ctx c)  { return !c.cancelled(); }

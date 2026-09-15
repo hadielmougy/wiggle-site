@@ -13,6 +13,7 @@ that imports everyone's code.
 
 Each step names a **queue**; each service runs a worker subscribed only to its queues:
 
+<!-- snippet: microservices/contract,topology -->
 ```java
 interface OrderSteps {                         // one declaration, shared by every service
     Order validate(Order o);
@@ -30,6 +31,7 @@ FlowSpec orders = FlowSpec.define("orders", Order.class, OrderSteps.class, (f, s
 
 Four separate processes — deployed, scaled, and owned independently:
 
+<!-- snippet: microservices/worker -->
 ```java
 // payments-service (Java)
 new Worker(client, "payments-1")

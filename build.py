@@ -48,7 +48,15 @@ PATTERNS_NAV = [
     ("cells", "Per-tenant isolation (cells)"),
 ]
 
+TUTORIAL_NAV = [
+    ("index", "Your first workflow"),
+    ("the-flow", "The flow"),
+    ("the-handlers", "The handlers"),
+    ("run-it", "Run it"),
+]
+
 TOP_NAV = [  # (href, label) for the header
+    ("/tutorial/", "Tutorial"),
     ("/docs/", "Docs"),
     ("/patterns/", "Patterns"),
     ("/deployment/", "Deploy"),
@@ -222,6 +230,7 @@ def main() -> None:
                                    "database; cellular sharding built in. Java, Go, and Python workers.",
                        content=landing, active="", path="/"))
 
+    build_section(tpl, "tutorial", TUTORIAL_NAV)
     build_section(tpl, "docs", DOCS_NAV)
     build_section(tpl, "patterns", PATTERNS_NAV)
     build_page(tpl, "deployment", "Deploying on Kubernetes")

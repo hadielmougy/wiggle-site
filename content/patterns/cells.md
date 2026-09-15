@@ -29,6 +29,7 @@ wiggle open-epoch -n orders 0=cellA 1=cellB
 
 Clients and workers don't change — they resolve through the coordinator:
 
+<!-- snippet: cells/connect -->
 ```java
 try (var wiggle = WiggleConnection.coordinator("coordinator:8099", tls, "eu-west")) {
     wiggle.clientForNamespace("orders").start(orders, order);   // routed to the owning cell
