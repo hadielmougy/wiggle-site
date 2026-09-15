@@ -12,6 +12,7 @@ was being rotated, and not twice because two replicas both thought they were the
 Schedules are server-side objects that start a fresh instance of a registered workflow on a cron
 expression or a fixed interval:
 
+<!-- snippet: scheduled/contract,topology -->
 ```java
 interface ReportSteps {
     Report gather(Report r);

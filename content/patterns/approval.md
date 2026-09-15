@@ -10,6 +10,7 @@ never. Holding a worker thread (or any process resource) for that wait is absurd
 
 ## The topology
 
+<!-- snippet: approval/contract,topology -->
 ```java
 interface ExpenseSteps {
     Expense submit(Expense e);
@@ -19,7 +20,7 @@ interface ExpenseSteps {
     Expense payOut(Expense e);
 }
 
-FlowSpec.define("expense-approval", Expense.class, ExpenseSteps.class, (f, s) -> {
+FlowSpec approval = FlowSpec.define("expense-approval", Expense.class, ExpenseSteps.class, (f, s) -> {
     var waited = f.thenApply(s::submit)
             .thenAwait("manager-approval", Duration.ofHours(48),
                     esc -> esc.thenApply(s::autoEscalate));   // runs only if the deadline passes
@@ -34,22 +35,25 @@ FlowSpec.define("expense-approval", Expense.class, ExpenseSteps.class, (f, s) ->
 
 ## The handlers
 
+<!-- snippet: approval-handlers/handlers -->
 ```java
 @ForFlow("expense-approval")
 class ExpenseHandlers {
-    public Expense submit(Expense e)       { return e.withState("PENDING_APPROVAL"); }
+
+    public Expense submit(Expense e)         { return e.withState("PENDING_APPROVAL"); }
 
     // deadline branch: nobody acted within 48h
-    public Expense autoEscalate(Expense e) { return e.escalated(true); }
+    public Expense autoEscalate(Expense e)   { return e.escalated(true); }
 
-    public boolean wasEscalated(Expense e) { return e.isEscalated(); }   // choose guard
-    public void    notifyDirector(Expense e) { mail.director(e); }        // effect: no state change
-    public Expense payOut(Expense e)       { return e.withState("PAID"); }
+    public boolean wasEscalated(Expense e)   { return e.isEscalated(); }   // choose guard
+    public void    notifyDirector(Expense e) { mail.director(e); }         // effect: no state change
+    public Expense payOut(Expense e)         { return e.withState("PAID"); }
 }
 ```
 
 Delivering the decision is one client call, from any process that knows the instance id:
 
+<!-- snippet: approval/signal -->
 ```java
 client.signal(instanceId, "manager-approval", Map.of("decision", "approved", "by", "sam"));
 ```

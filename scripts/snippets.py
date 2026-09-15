@@ -43,10 +43,23 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WIGGLE = ROOT.parent / "wiggle"
 
+FIXTURES = WIGGLE / "example/src/main/java/com/wiggle/docs"
+
 # page marker name -> the file whose regions it draws from
 SOURCES = {
-    "saga": WIGGLE / "example/src/main/java/com/wiggle/docs/SagaSnippet.java",
-    "saga-handlers": WIGGLE / "example/src/main/java/com/wiggle/docs/BookingHandlers.java",
+    "saga": FIXTURES / "SagaSnippet.java",
+    "saga-handlers": FIXTURES / "BookingHandlers.java",
+    "fork-join": FIXTURES / "ForkJoinSnippet.java",
+    "fork-join-handlers": FIXTURES / "OrderHandlers.java",
+    "fan-out": FIXTURES / "FanOutSnippet.java",
+    "fan-out-handlers": FIXTURES / "PricingHandlers.java",
+    "approval": FIXTURES / "ApprovalSnippet.java",
+    "approval-handlers": FIXTURES / "ExpenseHandlers.java",
+    "microservices": FIXTURES / "MicroservicesSnippet.java",
+    "retries": FIXTURES / "RetriesSnippet.java",
+    "retries-handlers": FIXTURES / "RetriesHandlers.java",
+    "scheduled": FIXTURES / "ScheduledSnippet.java",
+    "cells": FIXTURES / "CellsSnippet.java",
 }
 
 MARKER = re.compile(r"^(?P<indent>[ \t]*)<!-- snippet: (?P<source>[\w-]+)/(?P<regions>[\w,-]+) -->$")

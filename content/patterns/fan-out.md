@@ -10,40 +10,44 @@ merge) is exactly the fragile plumbing a workflow engine should own.
 
 ## The topology
 
+<!-- snippet: fan-out/contract,topology -->
 ```java
 interface PricingSteps {
-    Order loadOrder(Order o);
-    Item  price(Item item);                      // the element IS each branch's context
-    Order collect(@Context Order base, List<Item> priced);
-    Order summarise(Order o);
+    Order  loadOrder(Order o);
+    Priced price(LineItem line);                 // the element IS each branch's context
+    Order  collect(@Context Order base, List<Priced> priced);
+    Order  summarise(Order o);
 }
 
-FlowSpec.define("price-order", Order.class, PricingSteps.class, (f, s) -> f
-    .thenApply(s::loadOrder)
-    .thenForEach(Order::items,                   // one isolated branch per element of Order.items
-            item -> item.thenApply(s::price))
-    .combine(s::collect)                         // receives the collected results
-    .thenApply(s::summarise));
+FlowSpec pricing = FlowSpec.define("price-order", Order.class, PricingSteps.class, (f, s) -> f
+        .thenApply(s::loadOrder)
+        .thenForEach(Order::items,                   // one branch per element of Order.items
+                item -> item.thenApply(s::price))
+        .combine(s::collect)                         // receives the collected results
+        .thenApply(s::summarise));
 ```
 
 ## The handlers
 
+<!-- snippet: fan-out-handlers/handlers -->
 ```java
 @ForFlow("price-order")
 class PricingHandlers {
-    public Order load(Map<String, Object> ctx) { return repo.load(ctx); }
+
+    public Order loadOrder(Order o) { return repo.load(o); }
 
     // The parameter IS the element — the element is the item's context. Scalars work too.
     public Priced price(LineItem line) {
         Order base = Step.base(Order.class);     // frozen pre-forEach context, read-only
-        return new Priced(line.sku(), base.rate() * line.amount());
+        return new Priced(line.sku(), base.rate().multiply(line.amount()));
     }
 
     // The engine collects each item's FINAL value: List in order for a list input,
-    // Map keyed like the input for a map input, Set for a set. You fold explicitly.
+    // Map keyed like the input for a map input. You fold explicitly.
     public Order collect(@Context Order base, List<Priced> priced) {
         return base.withItems(priced)
-                   .withTotal(priced.stream().map(Priced::amount).reduce(ZERO, BigDecimal::add));
+                   .withTotal(priced.stream().map(Priced::amount)
+                           .reduce(BigDecimal.ZERO, BigDecimal::add));
     }
 
     public Order summarise(Order o) { return o.withStatus("PRICED"); }

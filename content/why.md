@@ -33,6 +33,7 @@ structure it has. Which suggests an alternative: **give the engine the structure
 A business process is described as a **graph** — named steps and how they chain, branch, and
 rejoin — and that graph, not any function, is what the server owns:
 
+<!-- snippet: fork-join/topology -->
 ```java
 FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> {
     var checked = f.thenApply(s::validate)
@@ -45,7 +46,7 @@ FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.cl
                           .thenApply(s::printLabel);
 
     return Wiggle.allOf(payment, shipping)
-            .combineWithContext(s::merge)    // branches rejoin at an explicit merge step
+            .combineWithContext(s::merge)    // mandatory — there is no implicit join
             .thenApply(s::notify);
 });
 ```

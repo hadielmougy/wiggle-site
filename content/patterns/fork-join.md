@@ -11,6 +11,7 @@ production.
 
 ## The topology
 
+<!-- snippet: fork-join/contract,topology -->
 ```java
 interface OrderSteps {                       // the steps, as a contract
     Order   validate(Order o);
@@ -27,7 +28,7 @@ FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.cl
     var checked = f.thenApply(s::validate)
             .thenFilter(s::inStock);         // false ⇒ the instance ends cleanly
 
-    // continuing `checked` twice is the fan-out
+    // continuing `checked` twice is the fan-out; the arms run on isolated copies
     var payment  = checked.thenApply(s::authorise, RetryPolicy.exponential(5, Duration.ofMillis(100)))
                           .thenApply(s::capture);
     var shipping = checked.thenApply(s::reserveStock)
@@ -41,9 +42,11 @@ FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.cl
 
 ## The handlers
 
+<!-- snippet: fork-join-handlers/handlers -->
 ```java
 @ForFlow("order-fulfilment")
 class OrderHandlers implements OrderSteps {      // the same contract the spec named
+
     public Order   validate(Order o)     { return o.withStatus("VALIDATED"); }
     public boolean inStock(Order o)      { return o.quantity() > 0; }
     public Order   authorise(Order o)    { return o.withPaymentRef(gateway.auth(o)); }
