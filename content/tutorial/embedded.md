@@ -136,7 +136,7 @@ public static void main(String[] args) throws Exception {
          WiggleClient client = new WiggleClient(server.baseUrl())) {
 
         FlowSpec orders = Orders.spec();
-        client.register(orders);      // register BEFORE a worker binds: it binds at start()
+        client.register(orders);
 
         try (Worker worker = new Worker(client, "worker-1")
                 .registerHandler(new OrderHandlers())
