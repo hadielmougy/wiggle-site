@@ -47,6 +47,10 @@ FIXTURES = WIGGLE / "example/src/main/java/com/wiggle/docs"
 
 # page marker name -> the file whose regions it draws from
 SOURCES = {
+    # the vendored docs arrive with markers of their own (the main repo generates them the same
+    # way); resolving them here keeps one behaviour for every marker and needs no ordering between
+    # the two repos' scripts
+    "cookbook": WIGGLE / "example/src/main/java/com/wiggle/cookbook/Cookbook.java",
     "saga": FIXTURES / "SagaSnippet.java",
     "saga-handlers": FIXTURES / "BookingHandlers.java",
     "fork-join": FIXTURES / "ForkJoinSnippet.java",
