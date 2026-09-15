@@ -19,7 +19,7 @@ docker run -d --name wiggle-db --network wiggle-net \
 docker run -d --name wiggle --network wiggle-net -p 8080:8080 \
     -e WIGGLE_JDBC_URL=jdbc:postgresql://wiggle-db:5432/wiggle \
     -e WIGGLE_JDBC_USER=wiggle -e WIGGLE_JDBC_PASSWORD=wiggle \
-    hadielmougy/wiggle:0.0.4
+    hadielmougy/wiggle:0.0.5
 ```
 
 The server migrates its own schema on first start. If your DBA owns the schema instead, run the
@@ -117,7 +117,7 @@ replays; the worker that picks it up did not have to be the one that started it.
 
 ```bash
 docker run --rm -p 8090:8090 --network wiggle-net -e WIGGLE_ROLE=console \
-    -e WIGGLE_URL=wiggle:8080 hadielmougy/wiggle:0.0.4
+    -e WIGGLE_URL=wiggle:8080 hadielmougy/wiggle:0.0.5
 ```
 
 <http://localhost:8090> shows instances, their current node, context, retries and failures.
