@@ -22,8 +22,9 @@ Embedding means you run the server, so add the server-side modules alongside the
 
 ```kotlin
 dependencies {
-    implementation("sh.wiggle:wiggle-client-all:0.0.6")
-    implementation("sh.wiggle:wiggle-postgres:0.0.6")   // brings wiggle-jdbc and wiggle-server
+    implementation(platform("sh.wiggle:wiggle-bom:0.0.6"))
+    implementation("sh.wiggle:wiggle-client")
+    implementation("sh.wiggle:wiggle-postgres")   // brings wiggle-jdbc and wiggle-server
 }
 ```
 
@@ -141,10 +142,10 @@ public static void main(String[] args) throws Exception {
                 .registerHandler(new OrderHandlers())
                 .start()) {
 
-            String id = client.start(orders, new Orders.Order("A-1001",
-                    List.of(new Orders.Item("PEN", new BigDecimal("2.50")),
-                            new Orders.Item("PAD", new BigDecimal("4.00"))),
-                    BigDecimal.ZERO, "NEW"));
+            String id = client.start(orders, new Order("A-1001",
+                        List.of(new Item("PEN", new BigDecimal("2.50")),
+                                new Item("PAD", new BigDecimal("4.00"))),
+                        BigDecimal.ZERO, "NEW"));
 
             InstanceView done = client.awaitCompletion(id, Duration.ofSeconds(30));
             System.out.println(done.status() + " " + done.context());
