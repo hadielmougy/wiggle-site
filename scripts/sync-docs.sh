@@ -10,7 +10,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 SRC=../wiggle/docs
-for f in onboarding cookbook queues sharding-and-epochs local-execution; do
+for f in onboarding versioning cookbook queues sharding-and-epochs local-execution; do
   cp "$SRC/$f.md" content/docs/
 done
 for img in architecture bench-sojourn bench-adaptive queues-flow; do
