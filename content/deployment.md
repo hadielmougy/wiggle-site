@@ -25,7 +25,7 @@ flowchart LR
   Q2 -->|no, or tenant isolation| C["C · cellular<br/>cells + coordinator"]
 ```
 
-All profiles use the same image — `hadielmougy/wiggle:0.0.5` — specialised entirely by env
+All profiles use the same image — `hadielmougy/wiggle:0.0.6` — specialised entirely by env
 (`WIGGLE_ROLE=cell | coordinator | console`), and the same workflows: **moving between profiles
 never changes a workflow definition or a worker.** Workers are not part of these manifests: they
 are pull-based processes in *your* services (any language) that long-poll the server over gRPC —
@@ -55,7 +55,7 @@ spec:
     spec:
       containers:
         - name: wiggle
-          image: hadielmougy/wiggle:0.0.5
+          image: hadielmougy/wiggle:0.0.6
           ports:
             - { containerPort: 8080, name: grpc }
             - { containerPort: 8090, name: health }
@@ -107,7 +107,7 @@ scheduling time, not data recovery time.
 
 ```yaml
         - name: console
-          image: hadielmougy/wiggle:0.0.5
+          image: hadielmougy/wiggle:0.0.6
           ports: [{ containerPort: 8090 }]
           env:
             - { name: WIGGLE_ROLE, value: "console" }
@@ -145,7 +145,7 @@ spec:
     spec:
       containers:
         - name: wiggle
-          image: hadielmougy/wiggle:0.0.5
+          image: hadielmougy/wiggle:0.0.6
           ports:
             - { containerPort: 8080, name: grpc }
             - { containerPort: 8090, name: health }
@@ -248,7 +248,7 @@ spec:
     spec:
       containers:
         - name: coordinator
-          image: hadielmougy/wiggle:0.0.5
+          image: hadielmougy/wiggle:0.0.6
           ports:
             - { containerPort: 8099, name: grpc }
           env:
@@ -292,7 +292,7 @@ spec:
     spec:
       containers:
         - name: wiggle
-          image: hadielmougy/wiggle:0.0.5
+          image: hadielmougy/wiggle:0.0.6
           ports:
             - { containerPort: 8080, name: grpc }
             - { containerPort: 8090, name: health }
