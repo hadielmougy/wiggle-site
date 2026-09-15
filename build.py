@@ -49,10 +49,10 @@ PATTERNS_NAV = [
 ]
 
 TUTORIAL_NAV = [
-    ("index", "Your first workflow"),
-    ("the-flow", "The flow"),
-    ("the-handlers", "The handlers"),
-    ("run-it", "Run it"),
+    ("index", "Tutorials"),
+    ("embedded", "1 · Embedded server"),
+    ("standalone", "2 · Standalone server"),
+    ("coordinated", "3 · Coordinator and cells"),
 ]
 
 TOP_NAV = [  # (href, label) for the header
