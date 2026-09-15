@@ -18,14 +18,32 @@ Any PostgreSQL will do; the server creates and migrates its own schema on first 
 
 ## 2. The dependencies for hosting the engine
 
-Embedding means you run the server, so add the server-side modules alongside the client:
+Embedding means you run the server, so you need the server-side modules — and, unlike the other two
+tutorials, **not** `wiggle-client-all`:
 
 ```kotlin
 dependencies {
-    implementation("sh.wiggle:wiggle-client-all:0.0.6")
-    implementation("sh.wiggle:wiggle-postgres:0.0.6")   // brings wiggle-jdbc and wiggle-server
+    implementation(platform("sh.wiggle:wiggle-bom:0.0.6"))
+    implementation("sh.wiggle:wiggle-client")
+    implementation("sh.wiggle:wiggle-postgres")   // brings wiggle-jdbc and wiggle-server
 }
 ```
+
+`wiggle-client-all` is the client shaded into one jar with gRPC relocated under
+`com.wiggle.shaded`. That is the right thing for an app that only *talks* to a server, and the wrong
+thing here: it also carries the generated `com.wiggle.proto` stubs, compiled against the relocated
+gRPC, while `wiggle-server` carries the same stubs compiled against the real one. Put both on a
+classpath and whichever wins decides — the server then tries to register a service the gRPC builder
+does not recognise:
+
+```text
+java.lang.ClassCastException: class com.wiggle.server.grpc.GrpcApi
+    cannot be cast to class io.grpc.BindableService
+```
+
+So: **hosting the engine → the unshaded modules** (this page). **Talking to one → `wiggle-client-all`**
+(tutorials [2](/tutorial/standalone/) and [3](/tutorial/coordinated/)). The BOM aligns the versions,
+so you name them once.
 
 Storage selection is an explicit factory rather than classpath discovery — no `ServiceLoader`, no
 `META-INF/services`. `PostgresStorageFactory` is the mapping the project ships (`jdbc:postgresql:`,

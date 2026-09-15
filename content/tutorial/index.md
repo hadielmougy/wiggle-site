@@ -44,8 +44,12 @@ dependencies {
 ```
 
 `wiggle-client-all` is the client shaded into one jar with gRPC and protobuf relocated, so it stays
-out of the way of whatever your service already uses. For the unshaded modules, import
-`sh.wiggle:wiggle-bom` and depend on `wiggle-client`.
+out of the way of whatever your service already uses. That is what tutorials 2 and 3 use.
+
+**Tutorial 1 is different**: it hosts the engine in your own JVM, so it needs the unshaded modules
+instead — `wiggle-client` plus `wiggle-postgres`, aligned by `sh.wiggle:wiggle-bom`. Mixing the
+shaded jar with the server modules puts two copies of the generated gRPC stubs on one classpath.
+That page says so where it matters.
 
 Every line of Java on these pages is compiled and run by the project's test suite — including the
 three `main` methods, each against a real server. If a page shows it, it works.
