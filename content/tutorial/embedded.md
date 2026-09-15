@@ -24,7 +24,7 @@ Embedding means you run the server, so add the server-side modules alongside the
 dependencies {
     implementation(platform("sh.wiggle:wiggle-bom:0.0.6"))
     implementation("sh.wiggle:wiggle-client")
-    implementation("sh.wiggle:wiggle-postgres")   // brings wiggle-jdbc and wiggle-server
+    implementation("sh.wiggle:wiggle-postgres")
 }
 ```
 
