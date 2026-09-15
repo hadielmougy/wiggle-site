@@ -29,6 +29,7 @@ GITHUB = "https://github.com/hadielmougy/wiggle"
 DOCS_NAV = [
     ("index", "Overview"),
     ("onboarding", "Onboarding & configuration"),
+    ("versioning", "Versioning"),
     ("cookbook", "Cookbook"),
     ("queues", "Queues"),
     ("sharding-and-epochs", "Sharding & epochs"),

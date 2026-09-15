@@ -16,24 +16,23 @@ docker run --rm -e POSTGRES_USER=wiggle -e POSTGRES_PASSWORD=wiggle \
 
 Any PostgreSQL will do; the server creates and migrates its own schema on first start.
 
-## 2. Storage is a factory you write
+## 2. The dependencies for hosting the engine
 
-Storage selection is an explicit factory rather than classpath discovery, so an embedding app says
-which backend it wants. It is a functional interface, so that is one lambda:
+Embedding means you run the server, so add the server-side modules alongside the client:
 
-<!-- snippet: tut-embedded/storage -->
-```java
-/** Storage is an explicit factory, not classpath discovery -- so an embedding app writes it. */
-static StorageFactory postgres() {
-    return config -> new JdbcStorage(config.jdbcUrl(), config.jdbcUser(), config.jdbcPassword(),
-            config.jdbcPoolSize(), new PostgresDialect());
+```kotlin
+dependencies {
+    implementation("sh.wiggle:wiggle-client-all:0.0.4")
+    implementation("sh.wiggle:wiggle-postgres:0.0.4")   // brings wiggle-jdbc and wiggle-server
 }
 ```
 
-`JdbcStorage` comes from `wiggle-jdbc` and `PostgresDialect` from `wiggle-postgres`; both are pulled
-in by `wiggle-client-all`'s server-side siblings — add `sh.wiggle:wiggle-server`,
-`sh.wiggle:wiggle-jdbc` and `sh.wiggle:wiggle-postgres` for an embedded run, since you are hosting
-the engine yourself.
+Storage selection is an explicit factory rather than classpath discovery — no `ServiceLoader`, no
+`META-INF/services`. `PostgresStorageFactory` is the mapping the project ships (`jdbc:postgresql:`,
+`jdbc:h2:` for local runs, no URL at all for in-memory) and it arrives with `wiggle-postgres`, so
+that one dependency is the whole requirement. `StorageFactory` is a functional interface, so an app
+wanting a different mapping — its own dialect, or a wrapper that instruments the store — passes a
+lambda instead.
 
 ## 3. The flow
 
@@ -132,7 +131,7 @@ public static void main(String[] args) throws Exception {
             .withStorage("jdbc:postgresql://localhost:5432/wiggle", "wiggle", "wiggle", 8)
             .withPort(8080);
 
-    try (WiggleServer server = new WiggleServer(config, postgres()).start();
+    try (WiggleServer server = new WiggleServer(config, new PostgresStorageFactory()).start();
          WiggleClient client = new WiggleClient(server.baseUrl())) {
 
         FlowSpec orders = Orders.spec();
