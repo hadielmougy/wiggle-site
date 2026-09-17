@@ -1,6 +1,6 @@
 # Documentation
 
-Wiggle is a **durable workflow engine** — and the control plane to shard it. You define a business
+Wiggle is a **durable workflow engine**: a JAR and a database. You define a business
 process as pure **topology** (named steps and how they chain, branch, and rejoin); Wiggle persists
 every instance as tokens moving over that graph, so a process **survives restarts, retries, and
 worker death** and resumes exactly where it left off. Steps are executed by **pull-based workers**
@@ -35,7 +35,7 @@ over gRPC — your services, in your processes, in your language.
 
 ## Running modes
 
-Start embedded, end sharded — the same workflows run unchanged in all four postures:
+Start embedded, grow into a cluster — the same workflows run unchanged in all three postures:
 
 | Mode | What it is |
 |---|---|
@@ -43,4 +43,4 @@ Start embedded, end sharded — the same workflows run unchanged in all four pos
 | **Standalone** | one node, gRPC `:8080`, in-memory or a database |
 | **Cluster** | several nodes sharing one database; a leader runs timers and recovery |
 
-The [onboarding guide](onboarding.md) walks through each, including the ops console and the CLI.
+The [onboarding guide](onboarding.md) walks through each, including the ops console.
