@@ -12,7 +12,6 @@ in one JVM, so every pattern is testable before it's deployed.
 <a class="cardlink" href="/patterns/retries/"><span class="card"><span class="ct">↻ Retries &amp; failure isolation</span><span class="cd">Exponential backoff per step, gates for business-level "stop cleanly", and poll-until-ready loops for external dependencies.</span></span></a>
 <a class="cardlink" href="/patterns/scheduled/"><span class="card"><span class="ct">⏰ Cron &amp; scheduled work</span><span class="cd">Server-side cron and interval schedules with exactly-once firing across leader failover — no external scheduler.</span></span></a>
 <a class="cardlink" href="/patterns/microservices/"><span class="card"><span class="ct">🧵 One flow, many services</span><span class="cd">Route each step to a queue; separate services (in separate languages) each serve only their steps of the same durable instance.</span></span></a>
-<a class="cardlink" href="/patterns/cells/"><span class="card"><span class="ct">🧫 Per-tenant isolation</span><span class="cd">Give a tenant its own cell — database and cluster — behind one coordinator, with zero-migration resharding when load grows.</span></span></a>
 </div>
 
 ## How to read a pattern

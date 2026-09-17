@@ -21,10 +21,11 @@ runs consecutive same-queue steps back-to-back, cutting server round-trips for s
 ./gradlew :example:bench             # set WIGGLE_EXECUTION_MODE to reproduce
 ```
 
-## A real deployment — Kubernetes, PostgreSQL cells
+## A real deployment — Kubernetes, PostgreSQL
 
-The kind-based lab cluster: 1 coordinator, 2 cells (each its own server node **and its own
-PostgreSQL 16**), reached over `kubectl port-forward`. We ramp the offered start rate and watch
+The kind-based lab cluster: 2 server nodes, each with **its own PostgreSQL 16**, reached over
+`kubectl port-forward`. (Measured on the multi-cell topology of the time; the control plane sat
+outside the execution path.) We ramp the offered start rate and watch
 **probe sojourn** — the end-to-end time of a fresh instance from `start()` to `COMPLETED`. Flat
 sojourn means the cluster keeps up; monotonic growth means arrivals are outrunning it:
 
@@ -39,11 +40,6 @@ sojourn means the cluster keeps up; monotonic growth means arrivals are outrunni
 **≈300 durable workflow starts/sec — ≈2,400 durable step executions/sec — sustained with
 sub-second completion latency**; ~340/s survives a one-minute burst before backlog compounds.
 Submit latency p50 ≈ 26 ms / p99 ≈ 130 ms throughout. Every step durably committed to PostgreSQL.
-
-```bash
-WIGGLE_COORDINATOR_URL=… WIGGLE_NAMESPACE=… BENCH_RATES="300,340" \
-  ./gradlew :example:rateCeiling     # needs a running worker
-```
 
 ## Adaptive polling — opt-in flags, measured
 
@@ -68,27 +64,10 @@ never database throughput.
 WIGGLE_SUBMIT_URL=… WIGGLE_WORKER_URL=… ./gradlew :example:fallbackProbe
 ```
 
-## Resiliency under load — killing the coordinator
-
-To measure what a control-plane failure costs, we drove a paced **150 starts/sec for 240 seconds**
-(36,001 starts) and **SIGKILL-ed the coordinator JVM mid-run** — no graceful shutdown:
-
-| metric | result |
-|---|---|
-| recovery (SIGKILL → ready, leadership re-acquired) | **9 seconds** |
-| coordinator state after crash | **byte-exact** — policy revision, epoch ring, roster, definitions |
-| start-availability gap | one contiguous **5.4s window** (810 of 36,001 starts failed, 2.25%) |
-| running work during the outage | **unaffected** — probe sojourns held at ~260–290 ms throughout |
-| integrity | all 35,191 accepted starts completed; drained to 0 running on both cells |
-
-Workers keep serving cells they already know while the coordinator is down — only *new* start
-routing needs it. The failover driver ships in the repo (`./gradlew :example:coordFailover`).
-
 ## Honest footnotes
 
-- The submitter, worker, Kubernetes, coordinator, cells, and databases all shared those 10
-  cores — the cluster figures are a **floor, not a ceiling**. Two cells on *one* box measure the
-  same as one; cells buy throughput on separate hardware — that's the point of the model.
+- The submitter, worker, Kubernetes, the server nodes, and the databases all shared those 10
+  cores — the cluster figures are a **floor, not a ceiling**.
 - Measured on **fresh databases** deliberately: after ~500k retained finished instances, the same
   setup showed ~2× the latency at 300/s. **Retention and purge cadence are capacity parameters**,
   not housekeeping afterthoughts.

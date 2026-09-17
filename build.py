@@ -26,13 +26,14 @@ GITHUB = "https://github.com/hadielmougy/wiggle"
 # ---- navigation ---------------------------------------------------------------------------
 
 # (slug, title) — order defines the sidebar. Slugs are content/docs/<slug>.md.
+# Coordinator/cell pages are hidden for now: their markdown still lives in content/, and putting a
+# page back is re-adding its (slug, title) line here.
 DOCS_NAV = [
     ("index", "Overview"),
     ("onboarding", "Onboarding & configuration"),
     ("versioning", "Versioning"),
     ("cookbook", "Cookbook"),
     ("queues", "Queues"),
-    ("sharding-and-epochs", "Sharding & epochs"),
     ("local-execution", "Local execution"),
     ("clients", "Go & Python clients"),
 ]
@@ -46,14 +47,13 @@ PATTERNS_NAV = [
     ("saga", "Saga / compensation"),
     ("scheduled", "Cron & scheduled work"),
     ("microservices", "One flow, many services"),
-    ("cells", "Per-tenant isolation (cells)"),
 ]
 
 TUTORIAL_NAV = [
     ("index", "Tutorials"),
     ("embedded", "1 · Embedded server"),
     ("standalone", "2 · Standalone server"),
-    ("coordinated", "3 · Coordinator and cells"),
+    # ("coordinated", "3 · Coordinator and cells"),   # hidden: coordinator docs are on hold
 ]
 
 TOP_NAV = [  # (href, label) for the header
@@ -225,10 +225,10 @@ def main() -> None:
     if landing.lstrip()[:15].lower().startswith("<!doctype"):
         emit("/", landing)
     else:
-        emit("/", page(tpl, title="Wiggle — durable workflows, cellular by design",
+        emit("/", page(tpl, title="Wiggle — durable workflows, in a JAR and a database",
                        description="An open-source durable workflow engine with no replay and no "
                                    "determinism rules: the workflow is data, not code. One JAR plus a "
-                                   "database; cellular sharding built in. Java, Go, and Python workers.",
+                                   "database. Java, Go, and Python workers.",
                        content=landing, active="", path="/"))
 
     build_section(tpl, "tutorial", TUTORIAL_NAV)

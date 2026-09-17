@@ -17,9 +17,7 @@ storage backends, client features — are welcome.
 
 The roadmap keeps an honest list — highlights that make good entry points:
 
-- **Console topology view** — namespaces → cells → epochs/ring/roster, live placement.
-- **Pending-signals over gRPC** — enumerate parked signal waits from the console in coordinator
-  mode.
+- **Pending-signals over gRPC** — enumerate parked signal waits from the console.
 - **Buffered signals** — deliver-before-wait semantics as an option.
 - **A pattern you use** — the [patterns library](/patterns/) grows by real-world shapes; a PR with
   a topology + handlers + a paragraph of context is a great contribution.
@@ -34,8 +32,8 @@ git clone https://github.com/hadielmougy/wiggle && cd wiggle
 ./gradlew :example:run   # see it work
 ```
 
-The engine is small enough to read in an afternoon — `server/` is the state machine,
-`client/` the DSL and worker, `coordinator/` the cellular control plane.
+The engine is small enough to read in an afternoon — `server/` is the state machine and
+`client/` the DSL and worker.
 
 ## Ground rules
 

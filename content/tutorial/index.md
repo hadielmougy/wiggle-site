@@ -8,7 +8,6 @@ shape is not a property of the workflow.
 |---|---|
 | **[1 · Embedded server](/tutorial/embedded/)** | you want a durable workflow inside one service, on a database you already run. One process, one `main`. |
 | **[2 · Standalone server](/tutorial/standalone/)** | the engine should be its own deployment, with your services as clients and workers around it. |
-| **[3 · Coordinator and cells](/tutorial/coordinated/)** | you need per-tenant or per-region isolation: several cells, each with its own database, placed by a coordinator. |
 
 They are ordered by how much infrastructure they ask for, not by capability. The flow, the handlers
 and the client API are identical in all three; what changes is where the server lives and who tells
