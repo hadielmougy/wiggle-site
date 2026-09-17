@@ -11,7 +11,6 @@ Pick a profile:
 |---|---|---|
 | [A · Single server, active/passive](#a--single-server-activepassive) | 1 node; Kubernetes reschedules it | small services, first production deploy |
 | [B · Cluster, active/active](#b--cluster-activeactive) | N nodes on one database, all serving | production HA, zero-downtime rollouts |
-| [C · Cellular](#c--cellular) | many cells (each its own DB + cluster) behind a coordinator | multi-tenant isolation, scale-out past one DB |
 
 Deciding between A and B? There's a **[complete decision guide](/high-availability/)** —
 mechanics, failure timelines, every trade-off dimension, and the full configuration reference
@@ -20,13 +19,11 @@ for both postures.
 ```mermaid
 flowchart LR
   Q1{"need HA?"} -->|no| A["A · single server<br/>active/passive"]
-  Q1 -->|yes| Q2{"one database<br/>enough?"}
-  Q2 -->|yes| B["B · cluster<br/>active/active"]
-  Q2 -->|no, or tenant isolation| C["C · cellular<br/>cells + coordinator"]
+  Q1 -->|yes| B["B · cluster<br/>active/active"]
 ```
 
-All profiles use the same image — `hadielmougy/wiggle:0.0.6` — specialised entirely by env
-(`WIGGLE_ROLE=cell | coordinator | console`), and the same workflows: **moving between profiles
+Both profiles use the same image — `hadielmougy/wiggle:0.0.6` — specialised entirely by env
+(`WIGGLE_ROLE=server | console`), and the same workflows: **moving between profiles
 never changes a workflow definition or a worker.** Workers are not part of these manifests: they
 are pull-based processes in *your* services (any language) that long-poll the server over gRPC —
 they need egress to port 8080, nothing inbound.
@@ -202,165 +199,19 @@ spec:
   showed roughly **2× the latency** at the same load. Purge cadence is a capacity parameter,
   not housekeeping.
 - One laptop-grade cluster sustains ~300 workflow starts/sec with sub-second completion —
-  [full methodology](/performance/). When you outgrow one database, don't shard it: go cellular.
+  [full methodology](/performance/).
 
 The console is identical to profile A (`WIGGLE_URL=wiggle:8080` — direct mode covers the whole
 cluster, since every node sees the same database).
 
 ---
 
-## C · Cellular
-
-When one database is no longer enough — or tenants must not share blast radius — a namespace
-becomes one or more **cells**: each a complete profile-B cluster with **its own database**. A
-small **coordinator** — stateless processes over a small database of their own — owns
-placement: it publishes shard→cell rings as *epochs*, and instance ids carry their own routing
-(`orders.e0.s3.01J…`), so nothing does directory lookups on the request path. The coordinator is
-**not in the execution path** — in a failover test, SIGKILL-ing it under load cost a 5.4s gap
-on *new* starts only; running work never noticed.
-
-Deploy order: coordinator → cells → publish an epoch → console/clients.
-
-### C.1 The coordinator (Deployment)
-
-Coordinators hold no state of their own — it lives in a small database they share — so this is an
-ordinary Deployment behind an ordinary Service. No PVC, no stable identity, no peer list, no
-bootstrap ordering. Run more than one and they elect a leader between themselves; only the leader
-runs the reconcile/retire loop.
-
-```yaml
-apiVersion: v1
-kind: Service
-metadata: { name: coordinator }
-spec:
-  selector: { app: coordinator }
-  ports:
-    - { name: grpc, port: 8099, targetPort: 8099 }
----
-apiVersion: apps/v1
-kind: Deployment
-metadata: { name: coordinator }
-spec:
-  replicas: 2                       # any number; they elect one leader
-  selector: { matchLabels: { app: coordinator } }
-  template:
-    metadata: { labels: { app: coordinator } }
-    spec:
-      containers:
-        - name: coordinator
-          image: hadielmougy/wiggle:0.0.6
-          ports:
-            - { containerPort: 8099, name: grpc }
-          env:
-            - name: WIGGLE_NODE_NAME          # the id it announces in the coordinator roster
-              valueFrom: { fieldRef: { fieldPath: metadata.name } }
-            - { name: WIGGLE_ROLE, value: "coordinator" }
-            - { name: WIGGLE_PORT, value: "8099" }
-            - { name: WIGGLE_COORD_STORE, value: "jdbc:postgresql://coord-db:5432/wiggle_coord" }
-            - { name: WIGGLE_COORD_JDBC_USER, value: "wiggle" }
-            - name: WIGGLE_COORD_JDBC_PASSWORD
-              valueFrom: { secretKeyRef: { name: coord-db, key: password } }
-          readinessProbe:
-            tcpSocket: { port: 8099 }
-            initialDelaySeconds: 5
-            periodSeconds: 3
-```
-
-The control-plane database is tiny — placement policy, the cell roster, the definition and
-namespace registries — and separate from every cell's database on purpose: a cell must never know
-about coordinators, and the two are linked by nothing but the gRPC contract. The schema creates
-itself on startup like the engine's does.
-
-Leaving `WIGGLE_COORD_STORE` unset keeps the state in memory instead: one process, nothing to
-install, and nothing surviving a restart. Fine for a laptop or a demo, not for a deployment.
-
-### C.2 A cell (its own database + cluster)
-
-Each cell is profile B plus four env vars. One is a footgun worth bolding: **the node must
-advertise its pod IP** — the coordinator dials cells at the address they announce, and without it
-a node advertises `127.0.0.1` and the coordinator dials itself:
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata: { name: cell-a }
-spec:
-  replicas: 2
-  selector: { matchLabels: { app: cell-a } }
-  template:
-    metadata: { labels: { app: cell-a } }
-    spec:
-      containers:
-        - name: wiggle
-          image: hadielmougy/wiggle:0.0.6
-          ports:
-            - { containerPort: 8080, name: grpc }
-            - { containerPort: 8090, name: health }
-          env:
-            - name: WIGGLE_NODE_NAME
-              valueFrom: { fieldRef: { fieldPath: metadata.name } }
-            - name: WIGGLE_ADVERTISE_HOST              # REQUIRED in cellular mode
-              valueFrom: { fieldRef: { fieldPath: status.podIP } }
-            - { name: WIGGLE_ROLE, value: "cell" }
-            - { name: WIGGLE_CELL_ID, value: "cellA" }
-            - { name: WIGGLE_NAMESPACE, value: "orders" }
-            - { name: WIGGLE_COORDINATOR_URL, value: "coordinator:8099" }
-            - { name: WIGGLE_PORT, value: "8080" }
-            - { name: WIGGLE_DASHBOARD_PORT, value: "8090" }
-            - { name: WIGGLE_JDBC_URL, value: "jdbc:postgresql://db-cell-a:5432/wiggle" }
-            - { name: WIGGLE_JDBC_USER, value: "wiggle" }
-            - name: WIGGLE_JDBC_PASSWORD
-              valueFrom: { secretKeyRef: { name: cell-a-db, key: password } }
-          readinessProbe:
-            tcpSocket: { port: 8080 }
-            initialDelaySeconds: 3
-            periodSeconds: 3
-          livenessProbe:
-            httpGet: { path: /healthz, port: 8090 }
-            initialDelaySeconds: 10
-            periodSeconds: 10
-```
-
-`db-cell-a` is that cell's **own** database — a separate managed instance per cell is the whole
-point (separate failure domain, separate capacity). Repeat for `cell-b` with its own DB. Cell
-nodes register with the coordinator by heartbeat; there is no static cell inventory to maintain.
-
-### C.3 Publish an epoch (the namespace goes live)
-
-A namespace is deliberately **not-ready until an epoch names its cells** — no implicit
-placement. Publish the first shard→cell ring with the CLI:
-
-```bash
-wiggle use coordinator coordinator:8099
-wiggle open-epoch -n orders 0=cellA 1=cellB     # shard 0 → cellA, shard 1 → cellB
-wiggle allocations -n orders                    # verify placement
-```
-
-New instances now spread across both cells by consistent hashing. **Resharding later is another
-`open-epoch`** — new instances follow the new ring, in-flight ones finish where they live, and
-no data ever migrates. To retire a cell, publish an epoch without it and let it drain.
-
-### C.4 Console and clients
-
-```yaml
-          env:
-            - { name: WIGGLE_ROLE, value: "console" }
-            - { name: WIGGLE_COORDINATOR_URL, value: "coordinator:8099" }
-            - { name: WIGGLE_NAMESPACE, value: "orders" }
-            - { name: WIGGLE_DASHBOARD_PORT, value: "8090" }
-```
-
-The console fans queries across the namespace's cells and routes cancel/signal to the owning
-cell by instance id. Clients switch one line — `WiggleConnection.coordinator("coordinator:8099",
-tls, region)` instead of `WiggleConnection.direct(...)` — and a `NamespaceWorker` runs one worker
-per active cell, following rebalances automatically.
-
 ---
 
 ## Shared concerns (all profiles)
 
 - **Probes.** Readiness: TCP on the gRPC port (8080 / 8099). Liveness: `GET /healthz` on
-  `WIGGLE_DASHBOARD_PORT` — on a server/cell node that port serves *only* the probe (the UI is
+  `WIGGLE_DASHBOARD_PORT` — on a server node that port serves *only* the probe (the UI is
   the console process).
 - **TLS / mTLS.** A mounted keystore + `WIGGLE_TLS_KEYSTORE`(+`_PASSWORD`) turns TLS on for gRPC
   and HTTP alike; adding a truststore on the server requires client certificates. Unset =
@@ -374,5 +225,4 @@ per active cell, following rebalances automatically.
   versioned — in-flight instances finish on the graph they started with, so deploying new
   definitions never needs a migration window.
 
-The complete variable reference lives in [Onboarding & configuration](/docs/onboarding/); the
-cellular model in depth is [Sharding & epochs](/docs/sharding-and-epochs/).
+The complete variable reference lives in [Onboarding & configuration](/docs/onboarding/).

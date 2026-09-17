@@ -67,8 +67,8 @@ Three of these rows deserve emphasis:
 - **Throughput is a weaker argument for active/active than it looks.** Nodes multiply API and
   long-poll capacity, not database capacity — and the database is usually the binding constraint
   (in our [benchmarks](/performance/), the DB was the ceiling well before the node was). If you're
-  adding nodes for throughput rather than availability, you likely want
-  [cells](/deployment/#c--cellular) instead: more databases, not more nodes on one.
+  adding nodes for throughput rather than availability, scale the database first — more nodes on
+  one database do not move that ceiling.
 - **Latency mildly favors active/passive.** When a step completes, the server instantly wakes
   any worker waiting on that queue — but that wake signal is in-memory, so it only reaches
   workers connected to the **same node**. On a single node that's every worker, and each hop
@@ -103,8 +103,8 @@ once. Schedules can't double-fire across the handover — firing is a transactio
 **Either posture — database down:** everything is down. This is the honest architecture note:
 node redundancy does not protect you from the actual single point of failure. Put your HA budget
 into the database first (managed Multi-AZ), nodes second. When one database can't carry the
-load — or tenants must not share its blast radius — that's the [cellular](/deployment/#c--cellular)
-threshold, not an argument for more nodes.
+load — or tenants must not share its blast radius — that is a database problem, not an argument
+for more nodes: give each tenant, or each region, its own deployment and database.
 
 ## Configuration reference
 
@@ -147,7 +147,7 @@ flowchart TD
   Q3 -->|yes| AP["active/passive<br/>(lowest dispatch latency)"]
   Q3 -->|no| AP2["active/passive —<br/>simplest, cheapest"]
   AA --> Q4{"DB at its ceiling, or<br/>tenant isolation needed?"}
-  Q4 -->|yes| CELLS["go cellular instead<br/>(more databases)"]
+  Q4 -->|yes| SPLIT["separate deployments<br/>(more databases)"]
   Q4 -->|no| DONE["done"]
 ```
 
@@ -159,8 +159,8 @@ server-dispatched, and single-node wake-on-produce matters more than availabilit
 and want zero-downtime rollouts; workers and clients fan out enough to use the extra poll/API
 capacity. Set `WIGGLE_ADAPTIVE_FALLBACK_POLL=true` and mind `pool × replicas`.
 
-**Pick neither — go [cellular](/deployment/#c--cellular) — when:** the *database* is the
-bottleneck or the blast-radius concern. More nodes on one database solve neither.
+**Pick neither — split into separate deployments — when:** the *database* is the bottleneck or
+the blast-radius concern. More nodes on one database solve neither.
 
 And remember the escape hatch that makes this a low-stakes decision: **switching later is a
 replica count.** Start active/passive; the day you need active/active, set `replicas: 3`, switch

@@ -1,6 +1,6 @@
 # Documentation
 
-Wiggle is a **durable workflow engine** — and the control plane to shard it. You define a business
+Wiggle is a **durable workflow engine**: a JAR and a database. You define a business
 process as pure **topology** (named steps and how they chain, branch, and rejoin); Wiggle persists
 every instance as tokens moving over that graph, so a process **survives restarts, retries, and
 worker death** and resumes exactly where it left off. Steps are executed by **pull-based workers**
@@ -13,7 +13,6 @@ over gRPC — your services, in your processes, in your language.
 | Run something in the next ten minutes | [Onboarding & configuration](onboarding.md) |
 | See every operator in runnable code | [Cookbook](cookbook.md) |
 | Split one flow's steps across many microservices | [Queues](queues.md) |
-| Understand cells, epochs, and resharding | [Sharding & epochs](sharding-and-epochs.md) |
 | Cut server round-trips for step-heavy flows | [Local execution](local-execution.md) |
 | Write workers in Go or Python | [Go & Python clients](clients.md) |
 | Copy a working shape for a real process | [The patterns library](/patterns/) |
@@ -36,13 +35,12 @@ over gRPC — your services, in your processes, in your language.
 
 ## Running modes
 
-Start embedded, end sharded — the same workflows run unchanged in all four postures:
+Start embedded, grow into a cluster — the same workflows run unchanged in all three postures:
 
 | Mode | What it is |
 |---|---|
 | **Embedded** | `WiggleServer` inside your JVM, in-memory store — dev and tests |
 | **Standalone** | one node, gRPC `:8080`, in-memory or a database |
 | **Cluster** | several nodes sharing one database; a leader runs timers and recovery |
-| **Cellular** | many cells (each its own DB + cluster) behind a Raft coordinator |
 
-The [onboarding guide](onboarding.md) walks through each, including the ops console and the CLI.
+The [onboarding guide](onboarding.md) walks through each, including the ops console.

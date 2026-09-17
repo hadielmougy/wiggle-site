@@ -112,18 +112,17 @@ no-op; registering a changed one creates a new version, and in-flight instances 
 version they started with — both graphs coexist in the database. No `patched()` calls, no version
 branches inside workflow code, no migration windows.
 
-## The second bet: cells instead of one big cluster
+## The second bet: one database, not a distributed system
 
-Wiggle's unit of scale is the **cell**: a namespace maps to one or more cells, and each cell is a
-complete, independent deployment — its own server cluster and, crucially, *its own database*. A
-small coordinator assigns work across cells by consistent hashing over **epochs**:
-publishing a new shard-to-cell ring is an epoch bump; new instances follow the new ring while
-in-flight instances finish where they live, so **resharding never migrates data**. Routing is
-directory-free because each instance id embeds its namespace, epoch, and shard
-(`orders.e0.s3.01J…`) — any party can compute the owning cell from the id alone.
+A wiggle deployment is a cluster of stateless server nodes over **one database**. That database is
+the only source of truth, so there is no consensus protocol to operate, no quorum to lose, and no
+second store to keep in sync. Any node can drive any instance; a leader is elected over the same
+table to run timers and recovery, and its duties are idempotent, so a failover duplicates work at
+worst and never corrupts state.
 
-The operational meaning is blast-radius isolation of a kind logical namespaces cannot offer:
-tenant A's database melting down cannot touch tenant B's, because they do not share one.
+The operational meaning is that scaling and availability are things you already know how to do:
+add server nodes for capacity, and give the database the availability story your organisation
+already runs.
 
 ## Choosing
 
