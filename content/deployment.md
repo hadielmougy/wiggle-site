@@ -211,7 +211,7 @@ cluster, since every node sees the same database).
 ## Shared concerns (all profiles)
 
 - **Probes.** Readiness: TCP on the gRPC port (8080 / 8099). Liveness: `GET /healthz` on
-  `WIGGLE_DASHBOARD_PORT` — on a server/cell node that port serves *only* the probe (the UI is
+  `WIGGLE_DASHBOARD_PORT` — on a server node that port serves *only* the probe (the UI is
   the console process).
 - **TLS / mTLS.** A mounted keystore + `WIGGLE_TLS_KEYSTORE`(+`_PASSWORD`) turns TLS on for gRPC
   and HTTP alike; adding a truststore on the server requires client certificates. Unset =
