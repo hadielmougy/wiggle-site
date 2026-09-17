@@ -69,7 +69,7 @@ SOURCES = {
     "decode": FIXTURES / "decode/OrderHandlers.java",
     "queues": FIXTURES / "QueuesSnippet.java",
     "local-execution": FIXTURES / "LocalExecutionSnippet.java",
-    "id-codec": WIGGLE / "core/src/main/java/com/wiggle/core/IdCodec.java",
+    "id-codec": WIGGLE / "placement/src/main/java/com/wiggle/placement/IdCodec.java",
     "coordinated-connection": WIGGLE / "client/src/main/java/com/wiggle/client/CoordinatedConnection.java",
     "versioning": FIXTURES / "VersioningSnippet.java",
     "saga": FIXTURES / "SagaSnippet.java",

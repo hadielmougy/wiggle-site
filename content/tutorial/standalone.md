@@ -124,7 +124,5 @@ docker run --rm -p 8090:8090 --network wiggle-net -e WIGGLE_ROLE=console \
 
 ## Where to go next
 
-- **[Tutorial 3 · Coordinator and cells](/tutorial/coordinated/)** — when one server and one
-  database are no longer the right blast radius.
 - **[Deploying on Kubernetes](/deployment/)** — the same thing with manifests and a Helm chart.
 - **[Queues](/docs/queues/)** — route steps to the services that own them.

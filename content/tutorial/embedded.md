@@ -42,8 +42,7 @@ java.lang.ClassCastException: class com.wiggle.server.grpc.GrpcApi
 ```
 
 So: **hosting the engine → the unshaded modules** (this page). **Talking to one → `wiggle-client-all`**
-(tutorials [2](/tutorial/standalone/) and [3](/tutorial/coordinated/)). The BOM aligns the versions,
-so you name them once.
+([tutorial 2](/tutorial/standalone/)). The BOM aligns the versions, so you name them once.
 
 Storage selection is an explicit factory rather than classpath discovery — no `ServiceLoader`, no
 `META-INF/services`. `PostgresStorageFactory` is the mapping the project ships (`jdbc:postgresql:`,
