@@ -54,8 +54,8 @@ pays nothing extra:
 The fallback ramp costs no throughput: with it enabled the cluster still sustains the 300/s
 ceiling (re-validated after fixing an early version that re-claimed fast on busy nodes and
 measurably ate the ceiling). And a node-count A/B on this box confirmed the architecture claim:
-2 nodes per cell did **not** raise the ceiling — nodes multiply availability and API capacity,
-never database throughput.
+2 nodes on one database did **not** raise the ceiling — nodes multiply availability and API
+capacity, never database throughput.
 
 ![Adaptive polling before/after: timer drain 19.9s to 1.18s; cross-node dispatch p50 105ms to 28ms, p99 117ms to 39ms.](/assets/img/bench-adaptive.svg)
 
