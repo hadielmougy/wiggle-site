@@ -22,7 +22,7 @@ flowchart LR
   Q1 -->|yes| B["B · cluster<br/>active/active"]
 ```
 
-Both profiles use the same image — `hadielmougy/wiggle:0.0.6` — specialised entirely by env
+Both profiles use the same image — `hadielmougy/wiggle:0.0.7` — specialised entirely by env
 (`WIGGLE_ROLE=server | console`), and the same workflows: **moving between profiles
 never changes a workflow definition or a worker.** Workers are not part of these manifests: they
 are pull-based processes in *your* services (any language) that long-poll the server over gRPC —
@@ -52,7 +52,7 @@ spec:
     spec:
       containers:
         - name: wiggle
-          image: hadielmougy/wiggle:0.0.6
+          image: hadielmougy/wiggle:0.0.7
           ports:
             - { containerPort: 8080, name: grpc }
             - { containerPort: 8090, name: health }
@@ -104,7 +104,7 @@ scheduling time, not data recovery time.
 
 ```yaml
         - name: console
-          image: hadielmougy/wiggle:0.0.6
+          image: hadielmougy/wiggle:0.0.7
           ports: [{ containerPort: 8090 }]
           env:
             - { name: WIGGLE_ROLE, value: "console" }
@@ -142,7 +142,7 @@ spec:
     spec:
       containers:
         - name: wiggle
-          image: hadielmougy/wiggle:0.0.6
+          image: hadielmougy/wiggle:0.0.7
           ports:
             - { containerPort: 8080, name: grpc }
             - { containerPort: 8090, name: health }

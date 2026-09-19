@@ -24,7 +24,7 @@ interface OrderSteps {                       // the steps, as a contract
     Order   notify(Order o);
 }
 
-FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> {
+FlowSpec orders = FlowSpec.define("order-fulfilment", 1, Order.class, OrderSteps.class, (f, s) -> {
     var checked = f.thenApply(s::validate)
             .thenFilter(s::inStock);         // false ⇒ the instance ends cleanly
 

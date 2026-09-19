@@ -19,7 +19,7 @@ docker run -d --name wiggle-db --network wiggle-net \
 docker run -d --name wiggle --network wiggle-net -p 8080:8080 \
     -e WIGGLE_JDBC_URL=jdbc:postgresql://wiggle-db:5432/wiggle \
     -e WIGGLE_JDBC_USER=wiggle -e WIGGLE_JDBC_PASSWORD=wiggle \
-    hadielmougy/wiggle:0.0.6
+    hadielmougy/wiggle:0.0.7
 ```
 
 The server migrates its own schema on first start. If your DBA owns the schema instead, run the
@@ -38,7 +38,7 @@ workflow knows where the server is running.
 <!-- snippet: tutorial/topology -->
 ```java
 public static FlowSpec spec() {
-    return FlowSpec.define("orders", Order.class, OrderSteps.class, (f, s) -> f
+    return FlowSpec.define("orders", 1, Order.class, OrderSteps.class, (f, s) -> f
             .thenApply(s::validate)
             .thenFilter(s::inStock)
             .thenForEach(Order::items, item -> item
@@ -117,7 +117,7 @@ replays; the worker that picks it up did not have to be the one that started it.
 
 ```bash
 docker run --rm -p 8090:8090 --network wiggle-net -e WIGGLE_ROLE=console \
-    -e WIGGLE_URL=wiggle:8080 hadielmougy/wiggle:0.0.6
+    -e WIGGLE_URL=wiggle:8080 hadielmougy/wiggle:0.0.7
 ```
 
 <http://localhost:8090> shows instances, their current node, context, retries and failures.

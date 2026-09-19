@@ -19,7 +19,7 @@ run the step logic. See `README.md` for the elevator pitch and `docs/local-execu
 execution-mode deep dive.
 
 Core properties: durable (survives restarts), exactly-once dispatch and at-least-once execution,
-pull-based workers (no inbound connectivity), content-addressed immutable definitions, and multi-node
+pull-based workers (no inbound connectivity), immutable published definitions, and multi-node
 clustering over a shared database.
 
 ---
@@ -68,7 +68,7 @@ go through the migration runner ([§7.4](#74-schema-migrations)), never by editi
 | `example` | order-fulfilment demo, standalone worker/submitter, benchmark | *(not published)* |
 | `tests` | conformance scenarios + JUnit wrapper | *(not published)* |
 
-Published under group `sh.wiggle`, version **0.0.6** (the runnable `dist` module is not
+Published under group `sh.wiggle`, version **0.0.7** (the runnable `dist` module is not
 published). The server core is database-agnostic; it builds its store from an injected
 `StorageFactory` and the backend is selected from the URL scheme ([§7.2](#72-storage-backends)).
 
@@ -119,12 +119,12 @@ and `ghcr.io/hadielmougy/wiggle` (GHCR) — the two are the same image; use whic
 
 ```bash
 # run the released image: an in-memory server (gRPC :8080, /healthz probe optional)
-docker run --rm -p 8080:8080 hadielmougy/wiggle:0.0.6            # Docker Hub
-# docker run --rm -p 8080:8080 ghcr.io/hadielmougy/wiggle:0.0.6  # …or GHCR
+docker run --rm -p 8080:8080 hadielmougy/wiggle:0.0.7            # Docker Hub
+# docker run --rm -p 8080:8080 ghcr.io/hadielmougy/wiggle:0.0.7  # …or GHCR
 
 # the ops console against it (same image, different role) → http://localhost:8090
 docker run --rm -p 8090:8090 -e WIGGLE_ROLE=console -e WIGGLE_URL=host.docker.internal:8080 \
-  -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:0.0.6
+  -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:0.0.7
 
 # a complete stack: server + Postgres + console with login, durable volume, no TLS
 docker compose -f docker-compose.full.yml up -d      # → http://localhost:8090 (admin / change-me)
@@ -184,7 +184,7 @@ interface OrderSteps {
         ...
 }
 
-FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.class, (f, s) -> {
+FlowSpec orders = FlowSpec.define("order-fulfilment", 1, Order.class, OrderSteps.class, (f, s) -> {
     var validated = f.thenApply(s::validate).thenFilter(s::inStock);
 
     var payment  = validated.thenApply(s::authorise, RetryPolicy.exponential(5, ofMillis(100)))
@@ -232,7 +232,7 @@ interface OrderSteps {
 }
 
 // the author registers this without implementing a single step
-FlowSpec orders = FlowSpec.define("order-fulfilment", Order.class, OrderSteps.class,
+FlowSpec orders = FlowSpec.define("order-fulfilment", 1, Order.class, OrderSteps.class,
                 (f, s) -> { … });
 ```
 
@@ -416,7 +416,7 @@ variables in [§6.7](#67-example-worker--benchmark-variables) are conventions of
 ### 6.4 Execution modes
 
 Set per workflow: `f.execution(ExecutionMode.LOCAL_SYNC)` in the `define` body. The mode
-is part of the definition's **content hash**, so an in-flight instance keeps the mode it started on.
+is part of the definition's **fingerprint**, so an in-flight instance keeps the mode it started on.
 
 | Mode | Behaviour | Crash blast radius | Use for |
 |---|---|---|---|
