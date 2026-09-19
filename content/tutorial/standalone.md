@@ -38,7 +38,7 @@ workflow knows where the server is running.
 <!-- snippet: tutorial/topology -->
 ```java
 public static FlowSpec spec() {
-    return FlowSpec.define("orders", Order.class, OrderSteps.class, (f, s) -> f
+    return FlowSpec.define("orders", 1, Order.class, OrderSteps.class, (f, s) -> f
             .thenApply(s::validate)
             .thenFilter(s::inStock)
             .thenForEach(Order::items, item -> item

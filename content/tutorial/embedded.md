@@ -69,7 +69,7 @@ run on isolated copies and the combine is the only way results come back.
 <!-- snippet: tutorial/topology -->
 ```java
 public static FlowSpec spec() {
-    return FlowSpec.define("orders", Order.class, OrderSteps.class, (f, s) -> f
+    return FlowSpec.define("orders", 1, Order.class, OrderSteps.class, (f, s) -> f
             .thenApply(s::validate)
             .thenFilter(s::inStock)
             .thenForEach(Order::items, item -> item
@@ -136,16 +136,16 @@ public static void main(String[] args) throws Exception {
          WiggleClient client = new WiggleClient(server.baseUrl())) {
 
         FlowSpec orders = Orders.spec();
-        client.register(orders);
+        client.register(orders);      // register BEFORE a worker binds: it binds at start()
 
         try (Worker worker = new Worker(client, "worker-1")
                 .registerHandler(new OrderHandlers())
                 .start()) {
 
-            String id = client.start(orders, new Order("A-1001",
-                        List.of(new Item("PEN", new BigDecimal("2.50")),
-                                new Item("PAD", new BigDecimal("4.00"))),
-                        BigDecimal.ZERO, "NEW"));
+            String id = client.start(orders, new Orders.Order("A-1001",
+                    List.of(new Orders.Item("PEN", new BigDecimal("2.50")),
+                            new Orders.Item("PAD", new BigDecimal("4.00"))),
+                    BigDecimal.ZERO, "NEW"));
 
             InstanceView done = client.awaitCompletion(id, Duration.ofSeconds(30));
             System.out.println(done.status() + " " + done.context());
