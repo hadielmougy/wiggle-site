@@ -43,7 +43,7 @@ A gate separates *"this order shouldn't proceed"* (a normal outcome) from *"some
 
 <!-- snippet: retries/poll-loop -->
 ```java
-FlowSpec settling = FlowSpec.define("await-settlement", Ctx.class, SettlementSteps.class, (f, s) -> f
+FlowSpec settling = FlowSpec.define("await-settlement", 1, Ctx.class, SettlementSteps.class, (f, s) -> f
         .repeatWhile(s::stillPending, b -> b
                 .thenFilter(s::notCancelled)       // false short-circuits OUT of the loop entirely
                 .thenApply(s::poll)

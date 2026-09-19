@@ -19,7 +19,7 @@ interface PricingSteps {
     Order  summarise(Order o);
 }
 
-FlowSpec pricing = FlowSpec.define("price-order", Order.class, PricingSteps.class, (f, s) -> f
+FlowSpec pricing = FlowSpec.define("price-order", 1, Order.class, PricingSteps.class, (f, s) -> f
         .thenApply(s::loadOrder)
         .thenForEach(Order::items,                   // one branch per element of Order.items
                 item -> item.thenApply(s::price))

@@ -29,7 +29,7 @@ interface BookingSteps {
     Booking bookCourier(Booking b);                         // no undo: nothing external to unwind
 }
 
-FlowSpec booking = FlowSpec.define("booking", Booking.class, BookingSteps.class, (f, s) -> f
+FlowSpec booking = FlowSpec.define("booking", 1, Booking.class, BookingSteps.class, (f, s) -> f
         .thenApplyCompensable(s::reserveStock)
         .thenApplyCompensable(s::chargeCard)
         .thenApply(s::bookCourier));

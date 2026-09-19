@@ -54,7 +54,7 @@ docker run -d --name coordinator --network wiggle-net -p 8099:8099 \
     -e WIGGLE_ROLE=coordinator -e WIGGLE_PORT=8099 \
     -e WIGGLE_COORD_STORE=jdbc:postgresql://coord-db:5432/coord \
     -e WIGGLE_COORD_JDBC_USER=coord -e WIGGLE_COORD_JDBC_PASSWORD=coord \
-    hadielmougy/wiggle:0.0.6
+    hadielmougy/wiggle:0.0.7
 ```
 
 `WIGGLE_ROLE=coordinator` runs a control plane and no engine — it never becomes a cell. Leaving
@@ -71,7 +71,7 @@ docker run -d --name cell-a --network wiggle-net -p 8080:8080 \
     -e WIGGLE_COORDINATOR_URL=coordinator:8099 \
     -e WIGGLE_NAMESPACE=orders \
     -e WIGGLE_CELL_ID=cell-a \
-    hadielmougy/wiggle:0.0.6
+    hadielmougy/wiggle:0.0.7
 ```
 
 Three variables make a server a cell: **which coordinator** to talk to, **which namespace** it holds,
