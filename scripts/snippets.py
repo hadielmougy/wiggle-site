@@ -70,6 +70,7 @@ SOURCES = {
     "queues": FIXTURES / "QueuesSnippet.java",
     "local-execution": FIXTURES / "LocalExecutionSnippet.java",
     "observed": FIXTURES / "ObservedSnippet.java",
+    "event-log": FIXTURES / "EventLogSnippet.java",
     "id-codec": WIGGLE / "placement/src/main/java/com/wiggle/placement/IdCodec.java",
     "coordinated-connection": WIGGLE / "client/src/main/java/com/wiggle/client/CoordinatedConnection.java",
     "versioning": FIXTURES / "VersioningSnippet.java",
