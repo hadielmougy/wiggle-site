@@ -22,7 +22,7 @@ Embedding means you run the server, so add the server-side modules alongside the
 
 ```kotlin
 dependencies {
-    implementation(platform("sh.wiggle:wiggle-bom:0.0.7"))
+    implementation(platform("sh.wiggle:wiggle-bom:0.0.8"))
     implementation("sh.wiggle:wiggle-client")
     implementation("sh.wiggle:wiggle-postgres")
 }

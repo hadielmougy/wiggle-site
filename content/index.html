@@ -91,6 +91,13 @@ h3{font-size:19px;font-weight:680;letter-spacing:-.01em}
 .center .section-head{margin-left:auto;margin-right:auto}
 
 /* ---------- Reveal ---------- */
+/* console screenshots */
+.shots{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;margin-top:36px}
+.shot{margin:0;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.shot img{display:block;width:100%;max-width:100%;height:auto;border-bottom:1px solid var(--line)}
+.shot figcaption{padding:14px 18px;color:var(--muted);font-size:14px;line-height:1.55}
+.shot figcaption strong{color:var(--text)}
+@media (max-width:820px){.shots{grid-template-columns:minmax(0,1fr)}}
 .reveal{opacity:0;transform:translateY(26px);transition:opacity .85s cubic-bezier(.2,.7,.2,1),transform .85s cubic-bezier(.2,.7,.2,1)}
 .reveal.in{opacity:1;transform:none}
 .reveal-d1{transition-delay:.08s}.reveal-d2{transition-delay:.16s}.reveal-d3{transition-delay:.24s}.reveal-d4{transition-delay:.32s}
@@ -610,10 +617,30 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
         </div>
         <div class="ck">06 · Operable</div>
         <h3>Operable from day one</h3>
-        <p>Web ops console, CLI, health probes, queue-lag monitoring.</p>
+        <p>Web ops console with live traces and per-step latency, health probes, queue-lag monitoring.</p>
         <button class="toggle" data-target="c6" aria-expanded="false">Details <span class="chev">▾</span></button>
-        <div class="more" id="c6"><div class="more-inner"><p>Live trace of every instance over the workflow diagram. Cancel, signal, schedule, search by id or correlation id.</p></div></div>
+        <div class="more" id="c6"><div class="more-inner"><p>Live trace of every instance over the workflow diagram. Cancel, signal, schedule, search by id or correlation id. A Performance tab ranks every step by p95 and queue wait, and lists where an observed run departed from its topology.</p></div></div>
       </div>
+    </div>
+  </div>
+</section>
+<!-- ============ CONSOLE ============ -->
+<section class="section" id="console" style="padding-top:40px">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">The ops console</span>
+      <h2 style="margin-top:16px">See every run. Find the slow step.</h2>
+      <p class="lead">One web UI, a pure gRPC client of the server. Every instance traced over its own diagram, and every step timed by the handler's own clock &mdash; whether a worker ran it or your own service reported it.</p>
+    </div>
+    <div class="shots">
+      <figure class="shot reveal reveal-d1">
+        <img src="/assets/img/console-instance-trace.png" alt="The console's instance detail: an onboarding run traced over its diagram, parked on a manager-approval signal, with its tokens and an inline deliver button" loading="lazy">
+        <figcaption><strong>Live trace.</strong> Token status over the workflow diagram, a signal waiting on a human, and the button that delivers it.</figcaption>
+      </figure>
+      <figure class="shot reveal reveal-d2">
+        <img src="/assets/img/console-performance.png" alt="The console's Performance tab: the slowest step ringed red on the diagram, the step table ranked by p95, and the anomalies of observed runs below" loading="lazy">
+        <figcaption><strong>Performance.</strong> p50/p95 and queue wait per step, slowest first and ringed on the diagram; below it, where an <a href="/docs/observed-execution/">observed run</a> left its topology.</figcaption>
+      </figure>
     </div>
   </div>
 </section>

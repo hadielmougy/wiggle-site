@@ -35,6 +35,7 @@ DOCS_NAV = [
     ("cookbook", "Cookbook"),
     ("queues", "Queues"),
     ("local-execution", "Local execution"),
+    ("observed-execution", "Observed execution"),
     ("clients", "Go & Python clients"),
 ]
 
@@ -127,6 +128,8 @@ def rewrite_links(text: str, section: str) -> str:
         return f"]({GITHUB}/blob/main/{prefix}{clean}{frag})"
 
     text = _REPO_DOC.sub(repl, text)
+    # images a doc keeps under docs/img/ are vendored into assets/img by sync-docs.sh
+    text = re.sub(r"\]\(img/([\w.-]+)\)", r"](/assets/img/\1)", text)
     # non-doc repo files (java sources, README) linked with ../
     text = re.sub(r"\]\((\.\./)+([\w./-]+)\)", rf"]({GITHUB}/blob/main/\2)", text)
     return text
