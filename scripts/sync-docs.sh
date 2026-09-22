@@ -10,11 +10,14 @@
 set -eu
 cd "$(dirname "$0")/.."
 SRC=../wiggle/docs
-for f in onboarding versioning cookbook queues local-execution; do
+for f in onboarding versioning cookbook queues local-execution observed-execution; do
   cp "$SRC/$f.md" content/docs/
 done
 for img in architecture bench-sojourn bench-adaptive queues-flow; do
   cp "$SRC/img/$img.svg" assets/img/
+done
+for img in console-instance-trace console-performance; do
+  cp "$SRC/img/$img.png" assets/img/
 done
 python3 scripts/snippets.py
 

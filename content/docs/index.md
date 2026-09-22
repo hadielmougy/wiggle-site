@@ -14,6 +14,7 @@ over gRPC — your services, in your processes, in your language.
 | See every operator in runnable code | [Cookbook](cookbook.md) |
 | Split one flow's steps across many microservices | [Queues](queues.md) |
 | Cut server round-trips for step-heavy flows | [Local execution](local-execution.md) |
+| Check runs your services execute themselves, for conformance and bottlenecks | [Observed execution](observed-execution.md) |
 | Write workers in Go or Python | [Go & Python clients](clients.md) |
 | Copy a working shape for a real process | [The patterns library](/patterns/) |
 
@@ -44,3 +45,20 @@ Start embedded, grow into a cluster — the same workflows run unchanged in all 
 | **Cluster** | several nodes sharing one database; a leader runs timers and recovery |
 
 The [onboarding guide](onboarding.md) walks through each, including the ops console.
+
+## Execution modes
+
+Where a step runs is a property of the workflow, not of the deployment. A worker-run flow picks
+one of three with `executeInServer()`, `executeInLocalSync()` or `executeInLocalAsync()`; the
+fourth is stamped by the observer that publishes a flow, never by the spec:
+
+| Mode | Who runs the step | What the server does |
+|---|---|---|
+| `SERVER` | a worker, one round-trip per step | dispatches every step, commits every completion |
+| `LOCAL_SYNC` / `LOCAL_ASYNC` | a worker, chaining same-queue steps | commits per step, or once per batch — [local execution](local-execution.md) |
+| `OBSERVED` | your own service, on its own thread | dispatches nothing; checks each reported run against the topology and keeps its timings — [observed execution](observed-execution.md) |
+
+Every mode lands in the same **Performance** view of the console: per-step p50/p95 by the
+handler's own clock, queue wait for worker-run steps, and the anomalies of observed runs.
+
+![The console's Performance tab: the slowest step ringed on the diagram, the step table ranked by p95, and the anomaly list below.](/assets/img/console-performance.png)

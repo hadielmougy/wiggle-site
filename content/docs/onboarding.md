@@ -68,7 +68,7 @@ go through the migration runner ([§7.4](#74-schema-migrations)), never by editi
 | `example` | order-fulfilment demo, standalone worker/submitter, benchmark | *(not published)* |
 | `tests` | conformance scenarios + JUnit wrapper | *(not published)* |
 
-Published under group `sh.wiggle`, version **0.0.7** (the runnable `dist` module is not
+Published under group `sh.wiggle`, version **0.0.8** (the runnable `dist` module is not
 published). The server core is database-agnostic; it builds its store from an injected
 `StorageFactory` and the backend is selected from the URL scheme ([§7.2](#72-storage-backends)).
 
@@ -119,12 +119,12 @@ and `ghcr.io/hadielmougy/wiggle` (GHCR) — the two are the same image; use whic
 
 ```bash
 # run the released image: an in-memory server (gRPC :8080, /healthz probe optional)
-docker run --rm -p 8080:8080 hadielmougy/wiggle:0.0.7            # Docker Hub
-# docker run --rm -p 8080:8080 ghcr.io/hadielmougy/wiggle:0.0.7  # …or GHCR
+docker run --rm -p 8080:8080 hadielmougy/wiggle:0.0.8            # Docker Hub
+# docker run --rm -p 8080:8080 ghcr.io/hadielmougy/wiggle:0.0.8  # …or GHCR
 
 # the ops console against it (same image, different role) → http://localhost:8090
 docker run --rm -p 8090:8090 -e WIGGLE_ROLE=console -e WIGGLE_URL=host.docker.internal:8080 \
-  -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:0.0.7
+  -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:0.0.8
 
 # a complete stack: server + Postgres + console with login, durable volume, no TLS
 docker compose -f docker-compose.full.yml up -d      # → http://localhost:8090 (admin / change-me)
@@ -288,7 +288,7 @@ Every operation is topology only — it names a node; the matching `@ForFlow` me
 | `thenAwait(name[, timeout[, escalation]])` | wait for a named external signal; optional deadline escalates or fails |
 | `thenSubFlow(node, workflow, Result.class)` | run another workflow as a child; its result merges back, failure propagates |
 | a trailing `"queue"` argument / `defaultQueue(q)` | route one node (or every following step) to a dedicated worker pool |
-| `execution(mode)` | set the execution mode ([§6.4](#64-execution-modes)) |
+| `executeInServer()` / `executeInLocalSync()` / `executeInLocalAsync()` | set the execution mode ([§6.4](#64-execution-modes)) |
 | `checkpoint()` | (LOCAL_ASYNC) flush this step to the server before the next runs |
 
 Retry and queue are trailing arguments on the call that creates the node, in either order, so they travel *with* the step they configure — there is no separate call to forget. A node you named with a handler takes both (`thenApply`, `thenAccept`, `thenFilter`, `thenApplyCompensable`, `when`, and the `combine` of an `allOf` or a `thenForEach`). A node a construct creates for you takes only the queue: `repeatWhile`'s condition, whose retry stays the workflow default. Omitting a retry never leaves a node bare — it inherits the default given to `FlowSpec.define`. The context type is not fixed by the
@@ -415,7 +415,8 @@ variables in [§6.7](#67-example-worker--benchmark-variables) are conventions of
 
 ### 6.4 Execution modes
 
-Set per workflow: `f.execution(ExecutionMode.LOCAL_SYNC)` in the `define` body. The mode
+Set per workflow: `f.executeInLocalSync()` (or `executeInServer()` / `executeInLocalAsync()`) in the
+`define` body; a spec that names none defers to the server's default. The mode
 is part of the definition's **fingerprint**, so an in-flight instance keeps the mode it started on.
 
 | Mode | Behaviour | Crash blast radius | Use for |
@@ -488,7 +489,7 @@ Conventions of the `example` module's `WorkerMain` / `Benchmark` (not the librar
 | `WIGGLE_BENCH_WORKERS` | `4` | Benchmark | worker JVM-internal instances |
 | `WIGGLE_JDBC_URL` / `_USER` / `_PASSWORD` | *(unset)* | Benchmark | run the benchmark against a real DB |
 
-> The example workflows set their mode in code via `.execution(...)`. To sweep modes without
+> The example workflows set their mode in code via `.executeIn...()`. To sweep modes without
 > editing, change `OrderFulfilment.flow spec()` to call the provided `mode()` helper (reads
 > `WIGGLE_EXECUTION_MODE`); the benchmark already reads it.
 
@@ -509,18 +510,28 @@ One binary, two modes, chosen by env:
 # direct mode: one cluster
 WIGGLE_URL=localhost:8080 ./gradlew :console:run          # → http://localhost:8090
 
+# something to look at: a seeded server on :8080 (a completed run, two runs parked on a
+# signal, two schedules), or one with sixty observed checkout runs for the Performance tab
+./gradlew :example:seedDashboard
+./gradlew :example:seedObserved
+
 
 # or via the Docker image
 WIGGLE_ROLE=console WIGGLE_URL=server:8080 …
 ```
 
 The SPA (ClojureScript + Reagent, source in `dashboard-ui/`, compiled into the **console** jar)
-has five tabs: **Instances** (filter, search by **instance id or correlation id**, a live trace
+has six tabs: **Instances** (filter, search by **instance id or correlation id**, a live trace
 overlaying token status onto the workflow diagram, cancel, inline signal delivery), **Workflows**
 (render any compiled graph), **Schedules** (create/delete interval and cron schedules), **Signals**,
-and **Backlog** (dispatchable work no running worker can claim — [§7.5](#75-backlog-coverage-work-nothing-can-claim)). `./gradlew :console:build` compiles the bundle automatically (needs Node;
+**Backlog** (dispatchable work no running worker can claim — [§7.5](#75-backlog-coverage-work-nothing-can-claim)),
+and **Performance** (per-step p50/p95 by the handler's own clock and queue wait for every
+execution mode, the slowest step ringed on the diagram, and the anomalies of observed runs —
+[observed-execution.md](observed-execution.md)). `./gradlew :console:build` compiles the bundle automatically (needs Node;
 `-PskipDashboard` or a missing Node toolchain skips it). Dev loop: `cd dashboard-ui &&
 npx shadow-cljs watch app` (hot reload on :8280, proxying `/api` to a console on :8090).
+
+![The console's instance detail: an onboarding run traced over its own diagram, with its tokens and an inline signal form.](img/console-instance-trace.png)
 
 **Auth.** Set `WIGGLE_DASHBOARD_PASSWORD` to require login as the **operator** account
 (`WIGGLE_DASHBOARD_USER`, default `admin`). Optionally also set
