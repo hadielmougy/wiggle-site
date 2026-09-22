@@ -15,6 +15,7 @@ over gRPC — your services, in your processes, in your language.
 | Split one flow's steps across many microservices | [Queues](queues.md) |
 | Cut server round-trips for step-heavy flows | [Local execution](local-execution.md) |
 | Check runs your services execute themselves, for conformance and bottlenecks | [Observed execution](observed-execution.md) |
+| React from another system to what the engine decided | [Event log](event-log.md) |
 | Write workers in Go or Python | [Go & Python clients](clients.md) |
 | Copy a working shape for a real process | [The patterns library](/patterns/) |
 
@@ -60,5 +61,9 @@ fourth is stamped by the observer that publishes a flow, never by the spec:
 
 Every mode lands in the same **Performance** view of the console: per-step p50/p95 by the
 handler's own clock, queue wait for worker-run steps, and the anomalies of observed runs.
+
+Whatever the mode, each instance's lifecycle is also appended to a durable
+[event log](event-log.md) that other systems pull and acknowledge, and a handler can put its own
+domain events on it.
 
 ![The console's Performance tab: the slowest step ringed on the diagram, the step table ranked by p95, and the anomaly list below.](/assets/img/console-performance.png)
