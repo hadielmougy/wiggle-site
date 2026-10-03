@@ -68,7 +68,7 @@ go through the migration runner ([§7.4](#74-schema-migrations)), never by editi
 | `example` | order-fulfilment demo, standalone worker/submitter, benchmark | *(not published)* |
 | `tests` | conformance scenarios + JUnit wrapper | *(not published)* |
 
-Published under group `sh.wiggle`, version **0.0.8** (the runnable `dist` module is not
+Published under group `sh.wiggle`, version **0.0.9** (the runnable `dist` module is not
 published). The server core is database-agnostic; it builds its store from an injected
 `StorageFactory` and the backend is selected from the URL scheme ([§7.2](#72-storage-backends)).
 
@@ -119,12 +119,12 @@ and `ghcr.io/hadielmougy/wiggle` (GHCR) — the two are the same image; use whic
 
 ```bash
 # run the released image: an in-memory server (gRPC :8080, /healthz probe optional)
-docker run --rm -p 8080:8080 hadielmougy/wiggle:0.0.8            # Docker Hub
-# docker run --rm -p 8080:8080 ghcr.io/hadielmougy/wiggle:0.0.8  # …or GHCR
+docker run --rm -p 8080:8080 hadielmougy/wiggle:0.0.9            # Docker Hub
+# docker run --rm -p 8080:8080 ghcr.io/hadielmougy/wiggle:0.0.9  # …or GHCR
 
 # the ops console against it (same image, different role) → http://localhost:8090
 docker run --rm -p 8090:8090 -e WIGGLE_ROLE=console -e WIGGLE_URL=host.docker.internal:8080 \
-  -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:0.0.8
+  -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:0.0.9
 
 # a complete stack: server + Postgres + console with login, durable volume, no TLS
 docker compose -f docker-compose.full.yml up -d      # → http://localhost:8090 (admin / change-me)
@@ -395,6 +395,7 @@ variables in [§6.7](#67-example-worker--benchmark-variables) are conventions of
 | `WIGGLE_JDBC_USER` | `wiggle.jdbc.user` | *(unset)* | database user |
 | `WIGGLE_JDBC_PASSWORD` | `wiggle.jdbc.password` | *(unset)* | database password |
 | `WIGGLE_JDBC_POOL_SIZE` | `wiggle.jdbc.poolSize` | `10` | JDBC connection pool size |
+| `WIGGLE_JDBC_TX_ATTEMPTS` | `wiggle.jdbc.txAttempts` | `3` | replays for a transaction the database could not serve momentarily |
 
 ### 6.3 Server — engine, cluster & housekeeping
 
@@ -406,8 +407,12 @@ variables in [§6.7](#67-example-worker--benchmark-variables) are conventions of
 | `WIGGLE_HEARTBEAT_INTERVAL_MILLIS` | `wiggle.heartbeat.intervalMillis` | `5000` | cluster heartbeat/election interval |
 | `WIGGLE_MISSED_HEARTBEATS` | `wiggle.heartbeat.missedBeforeDead` | `3` | missed beats before a node is considered dead |
 | `WIGGLE_RETENTION_MILLIS` | `wiggle.retention.millis` | `86400000` | how long finished instances are kept before purge |
+| `WIGGLE_EVENTS_RETENTION_MILLIS` | `wiggle.events.retentionMillis` | `604800000` | how long an acknowledged [event-log](event-log.md) entry is kept |
+| `WIGGLE_EVENTS_VISIBILITY_MILLIS` | `wiggle.events.visibilityMillis` | `50` | how long an appended event is held back from the feed, covering appends still in flight |
 | `WIGGLE_HOUSEKEEPING_BATCH` | `wiggle.housekeeping.batch` | `100` | max items a housekeeping sweep processes per tick |
-| `WIGGLE_ADAPTIVE_HOUSEKEEPING` | `wiggle.adaptive.housekeeping` | `false` | a sweep that fills its batch runs again immediately (drain mode) — removes the batch÷tick promotion ceiling under backlog (measured: 100 → ~1,700 timers/sec at defaults); idle cost unchanged |
+| `WIGGLE_ADAPTIVE_HOUSEKEEPING` | `wiggle.adaptive.housekeeping` | `true` | a sweep that fills its batch runs again immediately (drain mode) — removes the batch÷tick promotion ceiling under backlog (measured: 100 → ~1,700 timers/sec at defaults); idle cost unchanged. `false` restores one batch per tick |
+| `WIGGLE_SWEEP_PARALLELISM` | `wiggle.sweep.parallelism` | `4` | how many of a housekeeping sweep's due items (timers, retries, expired leases, signal deadlines, schedules, observed-run settles) run at once, each in its own transaction; each holds a pooled connection while it runs. `1` runs them one at a time |
+| `WIGGLE_RETRY_TIMER_MIN_MILLIS` | `wiggle.retry.timerMinMillis` | `1000` | a retry backing off at least this long waits off the dispatch queue (WAITING) and is made dispatchable by the housekeeper once due, so it can land up to one housekeeping tick late; a shorter backoff waits READY. Keep it at or above `WIGGLE_POLL_INTERVAL_MILLIS` |
 | `WIGGLE_ADAPTIVE_FALLBACK_POLL` | `wiggle.adaptive.fallback` | `false` | freshly-parked long-polls re-claim quickly (fallback÷4) and decay to the configured interval — cuts cross-node dispatch latency in a multi-node cluster (measured: p50 105 → 30 ms); idle DB cost bounded |
 | `WIGGLE_LOOP_MAX_ITERATIONS` | `wiggle.loop.max.iterations` | `10000` | default `repeatWhile` budget — a loop guard may evaluate true at most this many times before the instance FAILS with a clear error; per-loop override via `repeatWhile(guard, maxIterations, body)` |
 | `WIGGLE_QUEUE_LAG_CHECK_INTERVAL_MILLIS` | `wiggle.queueLag.checkIntervalMillis` | `5000` | how often the leader checks the backlog ([§7.6](#76-queue-lag-monitoring)) |
@@ -521,26 +526,57 @@ WIGGLE_ROLE=console WIGGLE_URL=server:8080 …
 ```
 
 The SPA (ClojureScript + Reagent, source in `dashboard-ui/`, compiled into the **console** jar)
-has six tabs: **Instances** (filter, search by **instance id or correlation id**, a live trace
+has seven tabs: **Instances** (filter, search by **instance id or correlation id**, a live trace
 overlaying token status onto the workflow diagram, cancel, inline signal delivery), **Workflows**
 (render any compiled graph), **Schedules** (create/delete interval and cron schedules), **Signals**,
 **Backlog** (dispatchable work no running worker can claim — [§7.5](#75-backlog-coverage-work-nothing-can-claim)),
-and **Performance** (per-step p50/p95 by the handler's own clock and queue wait for every
+**Performance** (per-step p50/p95 by the handler's own clock and queue wait for every
 execution mode, the slowest step ringed on the diagram, and the anomalies of observed runs —
-[observed-execution.md](observed-execution.md)). `./gradlew :console:build` compiles the bundle automatically (needs Node;
+[observed-execution.md](observed-execution.md)), and **Users** (§7.1a, admins only). `./gradlew :console:build` compiles the bundle automatically (needs Node;
 `-PskipDashboard` or a missing Node toolchain skips it). Dev loop: `cd dashboard-ui &&
 npx shadow-cljs watch app` (hot reload on :8280, proxying `/api` to a console on :8090).
 
 ![The console's instance detail: an onboarding run traced over its own diagram, with its tokens and an inline signal form.](img/console-instance-trace.png)
 
-**Auth.** Set `WIGGLE_DASHBOARD_PASSWORD` to require login as the **operator** account
-(`WIGGLE_DASHBOARD_USER`, default `admin`). Optionally also set
-`WIGGLE_DASHBOARD_VIEWER_PASSWORD` for a **read-only viewer** account
-(`WIGGLE_DASHBOARD_VIEWER_USER`, default `viewer`): a viewer sees everything but any mutating call
-(cancel, signal, schedule — every non-GET `/api/*`) is rejected. Browsers get a `/login` form that
-sets an HttpOnly session cookie; programmatic clients can use HTTP Basic auth. Unset password =
-open access (warning at startup). Credentials travel cleartext over plain HTTP, so serve over TLS
-for anything exposed.
+**Auth.** Two roles: **admin** does everything, **viewer** sees everything but is refused any
+mutating call (cancel, signal, schedule, users — every non-GET `/api/*`). Browsers get a
+`/login` form that sets an HttpOnly session cookie; programmatic clients can use HTTP Basic
+auth. Credentials travel cleartext over plain HTTP, so serve over TLS for anything exposed.
+
+Accounts come from two places. **Built-in** accounts are configured where the console is
+deployed: `WIGGLE_DASHBOARD_PASSWORD` for the admin (`WIGGLE_DASHBOARD_USER`, default `admin`)
+and optionally `WIGGLE_DASHBOARD_VIEWER_PASSWORD` for a viewer (`WIGGLE_DASHBOARD_VIEWER_USER`,
+default `viewer`). Nothing in the running console can change them. **Managed** accounts are the
+ones an admin creates in the console itself (§7.1a). With neither a built-in password nor a
+managed account, the console is open and every request is an admin (warning at startup).
+
+### 7.1a Users an admin manages
+
+An admin gets a **Users** tab: create an account with a name, a password and a role
+(`admin` or `viewer`), set someone's password, or delete an account. Everyone who signs in with
+a managed account can change their own password from the header, proving their current one
+first. A viewer may do that too — it is the one write a viewer is allowed, since it changes
+nothing but their own account.
+
+Accounts live in a JSON file the console owns, `WIGGLE_CONSOLE_USERS_FILE` (default
+`wiggle-users.json` in the working directory), **not** in the workflow database. The gRPC
+control plane has no per-RPC authorization yet, so anything stored behind it is reachable by
+every worker that can dial the server; console credentials stay out of that blast radius. In
+Kubernetes that means mounting a volume for the file, or the accounts go when the pod does.
+
+Passwords are stored as PBKDF2-HMAC-SHA256 hashes over a per-account random salt, never in the
+clear, and the file is rewritten atomically and kept owner-only where the filesystem allows.
+
+Three rules keep a console reachable:
+
+- A managed account cannot take a built-in account's name, and built-in accounts cannot be
+  deleted or re-passworded from the console — they are set in the environment.
+- The last remaining admin cannot be deleted when there is no built-in admin to fall back on.
+- Creating the first managed account **turns authentication on**, even if no password was
+  configured. Sign in with the account you just made.
+
+Changing or resetting a password signs out that account's other sessions; the one doing the
+changing stays signed in. Deleting an account signs it out everywhere.
 
 | Env var | Default | Meaning |
 |---|---|---|
@@ -548,6 +584,7 @@ for anything exposed.
 | `WIGGLE_DASHBOARD_PORT` | `8090` | console HTTP port |
 | `WIGGLE_DASHBOARD_USER` / `WIGGLE_DASHBOARD_PASSWORD` | `admin` / *(unset)* | operator login; unset = open |
 | `WIGGLE_DASHBOARD_VIEWER_USER` / `WIGGLE_DASHBOARD_VIEWER_PASSWORD` | `viewer` / *(unset)* | optional read-only account |
+| `WIGGLE_CONSOLE_USERS_FILE` | `wiggle-users.json` | where accounts an admin creates in the console are kept ([§7.1a](#71a-users-an-admin-manages)) |
 | `WIGGLE_TLS_*` | *(unset)* | HTTPS for the console + the client certs it presents to the server |
 
 ### 7.1a Transport security (TLS / mTLS)

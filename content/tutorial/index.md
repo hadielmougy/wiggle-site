@@ -38,7 +38,7 @@ flowchart LR
 
 ```kotlin
 dependencies {
-    implementation("sh.wiggle:wiggle-client-all:0.0.8")
+    implementation("sh.wiggle:wiggle-client-all:0.0.9")
 }
 ```
 

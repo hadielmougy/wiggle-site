@@ -106,9 +106,10 @@ The routing is two moves the server makes with the same `queue` label:
 
 1. **Stamp.** When an instance advances to a worker step, the server parks that step's token `READY` and
    stamps the token's `queue` from the node (`parkAtWorkerStep`: `token.queue = node.queue()`).
-2. **Filter.** A poll claims the oldest `READY` tasks whose `queue` is in the worker's served set
+2. **Filter.** A poll claims `READY` tasks whose `queue` is in the worker's served set
    (`claimTasks` filters `queues.contains(token.queue)`), flips them to `RUNNING`, and stamps a
-   **lease** owned by that worker.
+   **lease** owned by that worker. Tasks of the oldest instances go first, then the longest-ready, so
+   under a backlog the server finishes the instances it started before advancing newer ones.
 
 So the token's queue (from the DSL) is exactly what the claim filters on. A worker receives a step **iff**
 that step's queue ∈ the worker's served queues.
@@ -124,12 +125,12 @@ sequenceDiagram
   Note over SRV: 'validate' token is READY on queue=orders
   SRV-->>OS: lease validate (RUNNING, lease 30s)
   OS->>OS: run validate(ctx)
-  OS->>SRV: CompleteTask(result)
+  OS->>SRV: ReportSteps(result)
   Note over SRV: advance → park 'charge' READY on queue=payments
   PS->>SRV: PollTasks(queues=[payments], wait=Ns)
   SRV-->>PS: lease charge (RUNNING, lease 30s)
   PS->>PS: run charge(ctx)
-  PS->>SRV: CompleteTask(result)
+  PS->>SRV: ReportSteps(result)
   Note over SRV: advance → 'render-receipt' READY on queue=gpu …
 ```
 
@@ -206,7 +207,7 @@ even inside a local chain, a step on another queue crosses to another service. E
 | long-poll for served queues | `client/**/worker/Worker.java` (`pollLoop`), `server/**/grpc/GrpcApi.java` |
 | stamp token queue / claim-filter by queue | `server/**/engine/WorkflowEngine.java` (`parkAtWorkerStep`), `server/**/store/*Storage.java` (`claimTasks`) |
 | local-vs-handback decision | `core/**/GraphTraversal.java` (`classify`), `server/**/engine/WorkflowEngine.java` (`applyRun`) |
-| RPCs (`PollTasks`, `CompleteTask`, `AdvanceRun`, …) | `proto/src/main/proto/wiggle.proto` |
+| RPCs (`PollTasks`, `ReportSteps`, `FailTask`, …) | `proto/src/main/proto/wiggle.proto` |
 
 ---
 
