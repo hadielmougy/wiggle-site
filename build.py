@@ -33,6 +33,7 @@ DOCS_NAV = [
     ("onboarding", "Onboarding & configuration"),
     ("versioning", "Versioning"),
     ("cookbook", "Cookbook"),
+    ("error-handling", "Error handling"),
     ("queues", "Queues"),
     ("local-execution", "Local execution"),
     ("observed-execution", "Observed execution"),
