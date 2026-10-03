@@ -607,19 +607,19 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
       <!-- 06 Operable -->
       <div class="card">
         <div class="card-icon">
-          <svg viewBox="0 0 160 90" width="100%" height="90" role="img" aria-label="Ops console with live trace">
+          <svg viewBox="0 0 160 90" width="100%" height="90" role="img" aria-label="Ops console with every step of every run">
             <rect x="14" y="14" width="132" height="62" rx="11" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.28)"/>
             <path d="M28 64 V40 M44 64 V46 M60 64 V50 M76 64 V36 M92 64 V48 M108 64 V44 M124 64 V38 M140 64 V42" stroke="rgba(242,179,93,.75)" stroke-width="1.6" stroke-linecap="round"/>
             <path d="M28 64 V40" stroke="rgba(74,222,128,.9)" stroke-width="1.6" stroke-linecap="round"/>
             <circle cx="28" cy="40" r="2.6" fill="rgba(74,222,128,.95)"/>
-            <text class="chip" x="80" y="22" text-anchor="middle" fill="#9aa4ae" style="font-size:9px">ops console · live trace</text>
+            <text class="chip" x="80" y="22" text-anchor="middle" fill="#9aa4ae" style="font-size:9px">ops console · every step</text>
           </svg>
         </div>
         <div class="ck">06 · Operable</div>
         <h3>Operable from day one</h3>
-        <p>Web ops console with live traces and per-step latency, health probes, queue-lag monitoring.</p>
+        <p>Web ops console with every run step by step and per-step latency, health probes, queue-lag monitoring.</p>
         <button class="toggle" data-target="c6" aria-expanded="false">Details <span class="chev">▾</span></button>
-        <div class="more" id="c6"><div class="more-inner"><p>Live trace of every instance over the workflow diagram. Cancel, signal, schedule, search by id or correlation id. A Performance tab ranks every step by p95 and queue wait, and lists where an observed run departed from its topology.</p></div></div>
+        <div class="more" id="c6"><div class="more-inner"><p>Every instance as a table of its steps; open one to see its input, output, retries and timing. Cancel, signal, schedule, search by id or correlation id. A Performance tab ranks every step by p95 and queue wait, and lists where an observed run departed from its topology.</p></div></div>
       </div>
     </div>
   </div>
@@ -630,16 +630,16 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
     <div class="section-head reveal">
       <span class="eyebrow">The ops console</span>
       <h2 style="margin-top:16px">See every run. Find the slow step.</h2>
-      <p class="lead">One web UI, a pure gRPC client of the server. Every instance traced over its own diagram, and every step timed by the handler's own clock &mdash; whether a worker ran it or your own service reported it.</p>
+      <p class="lead">One web UI, a pure gRPC client of the server. Every instance step by step &mdash; what each step got, what it returned, how often it retried &mdash; and every step timed by the handler's own clock, whether a worker ran it or your own service reported it.</p>
     </div>
     <div class="shots">
       <figure class="shot reveal reveal-d1">
-        <img src="/assets/img/console-instance-trace.png" alt="The console's instance detail: an onboarding run traced over its diagram, parked on a manager-approval signal, with its tokens and an inline deliver button" loading="lazy">
-        <figcaption><strong>Live trace.</strong> Token status over the workflow diagram, a signal waiting on a human, and the button that delivers it.</figcaption>
+        <img src="/assets/img/console-instance-trace.png" alt="The console's instance detail: an onboarding run as a table of its steps, the first expanded to its input, output, retries and timing, parked on a manager-approval signal with an inline deliver button" loading="lazy">
+        <figcaption><strong>Every step.</strong> Click a step for its input, output, retries and timing; a signal waiting on a human, and the button that delivers it.</figcaption>
       </figure>
       <figure class="shot reveal reveal-d2">
-        <img src="/assets/img/console-performance.png" alt="The console's Performance tab: the slowest step ringed red on the diagram, the step table ranked by p95, and the anomalies of observed runs below" loading="lazy">
-        <figcaption><strong>Performance.</strong> p50/p95 and queue wait per step, slowest first and ringed on the diagram; below it, where an <a href="/docs/observed-execution/">observed run</a> left its topology.</figcaption>
+        <img src="/assets/img/console-performance.png" alt="The console's Performance tab: the step table ranked by p95 with the slowest in red, and the anomalies of observed runs below" loading="lazy">
+        <figcaption><strong>Performance.</strong> p50/p95 and queue wait per step, slowest first; below it, where an <a href="/docs/observed-execution/">observed run</a> left its topology.</figcaption>
       </figure>
     </div>
   </div>

@@ -68,6 +68,7 @@ SOURCES = {
     "onboarding-handlers": FIXTURES / "onboarding/OrderHandlers.java",
     "decode": FIXTURES / "decode/OrderHandlers.java",
     "queues": FIXTURES / "QueuesSnippet.java",
+    "errors": FIXTURES / "ErrorHandlingSnippet.java",
     "local-execution": FIXTURES / "LocalExecutionSnippet.java",
     "observed": FIXTURES / "ObservedSnippet.java",
     "id-codec": WIGGLE / "placement/src/main/java/com/wiggle/placement/IdCodec.java",
