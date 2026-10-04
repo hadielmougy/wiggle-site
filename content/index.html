@@ -619,7 +619,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
         <h3>Operable from day one</h3>
         <p>Web ops console with every run step by step and per-step latency, health probes, queue-lag monitoring.</p>
         <button class="toggle" data-target="c6" aria-expanded="false">Details <span class="chev">▾</span></button>
-        <div class="more" id="c6"><div class="more-inner"><p>Every instance as a table of its steps; open one to see its input, output, retries and timing. Cancel, signal, schedule, search by id or correlation id. A Performance tab ranks every step by p95 and queue wait, and lists where an observed run departed from its topology.</p></div></div>
+        <div class="more" id="c6"><div class="more-inner"><p>Every instance as a table of its steps; open one to see its input, output, retries and timing. Cancel, signal, schedule, search by id or correlation id. A Performance tab ranks every step by p95 and queue wait.</p></div></div>
       </div>
     </div>
   </div>
@@ -630,16 +630,12 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
     <div class="section-head reveal">
       <span class="eyebrow">The ops console</span>
       <h2 style="margin-top:16px">See every run. Find the slow step.</h2>
-      <p class="lead">One web UI, a pure gRPC client of the server. Every instance step by step &mdash; what each step got, what it returned, how often it retried &mdash; and every step timed by the handler's own clock, whether a worker ran it or your own service reported it.</p>
+      <p class="lead">One web UI, a pure gRPC client of the server. Every instance step by step &mdash; what each step got, what it returned, how often it retried &mdash; and every step timed by the handler's own clock.</p>
     </div>
-    <div class="shots">
+    <div class="shots" style="grid-template-columns:minmax(0,1fr)">
       <figure class="shot reveal reveal-d1">
         <img src="/assets/img/console-instance-trace.png" alt="The console's instance detail: an onboarding run as a table of its steps, the first expanded to its input, output, retries and timing, parked on a manager-approval signal with an inline deliver button" loading="lazy">
         <figcaption><strong>Every step.</strong> Click a step for its input, output, retries and timing; a signal waiting on a human, and the button that delivers it.</figcaption>
-      </figure>
-      <figure class="shot reveal reveal-d2">
-        <img src="/assets/img/console-performance.png" alt="The console's Performance tab: the step table ranked by p95 with the slowest in red, and the anomalies of observed runs below" loading="lazy">
-        <figcaption><strong>Performance.</strong> p50/p95 and queue wait per step, slowest first; below it, where an <a href="/docs/observed-execution/">observed run</a> left its topology.</figcaption>
       </figure>
     </div>
   </div>

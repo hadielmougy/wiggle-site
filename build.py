@@ -36,7 +36,6 @@ DOCS_NAV = [
     ("error-handling", "Error handling"),
     ("queues", "Queues"),
     ("local-execution", "Local execution"),
-    ("observed-execution", "Observed execution"),
     ("clients", "Go & Python clients"),
 ]
 
