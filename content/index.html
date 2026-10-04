@@ -619,7 +619,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
         <h3>Operable from day one</h3>
         <p>Web ops console with every run step by step and per-step latency, health probes, queue-lag monitoring.</p>
         <button class="toggle" data-target="c6" aria-expanded="false">Details <span class="chev">▾</span></button>
-        <div class="more" id="c6"><div class="more-inner"><p>Every instance as a table of its steps; open one to see its input, output, retries and timing. Cancel, signal, schedule, search by id or correlation id. A Performance tab ranks every step by p95 and queue wait, and lists where an observed run departed from its topology.</p></div></div>
+        <div class="more" id="c6"><div class="more-inner"><p>Every instance as a table of its steps; open one to see its input, output, retries and timing. Cancel, signal, schedule, search by id or correlation id. A Performance tab ranks every step by p95 and queue wait.</p></div></div>
       </div>
     </div>
   </div>
@@ -630,16 +630,12 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
     <div class="section-head reveal">
       <span class="eyebrow">The ops console</span>
       <h2 style="margin-top:16px">See every run. Find the slow step.</h2>
-      <p class="lead">One web UI, a pure gRPC client of the server. Every instance step by step &mdash; what each step got, what it returned, how often it retried &mdash; and every step timed by the handler's own clock, whether a worker ran it or your own service reported it.</p>
+      <p class="lead">One web UI, a pure gRPC client of the server. Every instance step by step &mdash; what each step got, what it returned, how often it retried &mdash; and every step timed by the handler's own clock.</p>
     </div>
-    <div class="shots">
+    <div class="shots" style="grid-template-columns:minmax(0,1fr)">
       <figure class="shot reveal reveal-d1">
         <img src="/assets/img/console-instance-trace.png" alt="The console's instance detail: an onboarding run as a table of its steps, the first expanded to its input, output, retries and timing, parked on a manager-approval signal with an inline deliver button" loading="lazy">
         <figcaption><strong>Every step.</strong> Click a step for its input, output, retries and timing; a signal waiting on a human, and the button that delivers it.</figcaption>
-      </figure>
-      <figure class="shot reveal reveal-d2">
-        <img src="/assets/img/console-performance.png" alt="The console's Performance tab: the step table ranked by p95 with the slowest in red, and the anomalies of observed runs below" loading="lazy">
-        <figcaption><strong>Performance.</strong> p50/p95 and queue wait per step, slowest first; below it, where an <a href="/docs/observed-execution/">observed run</a> left its topology.</figcaption>
       </figure>
     </div>
   </div>
@@ -773,7 +769,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
 
     <div class="perf-grid">
       <div class="perf featured reveal reveal-d1">
-        <div class="num">7.2<span class="unit">K</span></div>
+        <div class="num">9.6<span class="unit">K</span></div>
         <div class="label">durable step executions/sec · one server node on a 16 vCPU Cloud SQL PostgreSQL</div>
         <div class="spark">
           <svg viewBox="0 0 320 64" preserveAspectRatio="none">
@@ -783,11 +779,11 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
             <circle cx="320" cy="8" r="3" fill="#F2B35D"/>
           </svg>
         </div>
-        <div class="tagline">900 workflow instances/sec · ≈3s end to end · GCP</div>
+        <div class="tagline">1,200 workflow instances/sec · ≈1–1.5s end to end · GCP</div>
       </div>
 
       <div class="perf reveal reveal-d2">
-        <div class="num">4.8<span class="unit">K</span></div>
+        <div class="num">7.2<span class="unit">K</span></div>
         <div class="label">durable step executions/sec · same node on an 8 vCPU Cloud SQL</div>
         <div class="spark">
           <svg viewBox="0 0 320 64" preserveAspectRatio="none">
@@ -796,12 +792,12 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
             <polyline class="spark-line spark-draw" points="0,52 50,50 100,46 150,42 200,38 250,32 300,26 320,22" style="stroke:#65B7FF"/>
           </svg>
         </div>
-        <div class="tagline">600 workflow instances/sec · the database sets the ceiling</div>
+        <div class="tagline">900 workflow instances/sec · the database sets the ceiling</div>
       </div>
 
       <div class="perf reveal reveal-d3">
         <div class="num">260<span class="unit">ms</span></div>
-        <div class="label">end-to-end latency, flat, at 5,600 durable step executions/sec</div>
+        <div class="label">end-to-end latency, flat, at 8,000 durable step executions/sec</div>
         <div class="spark">
           <svg viewBox="0 0 320 64" preserveAspectRatio="none">
             <defs><linearGradient id="gP3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4ADE80" stop-opacity=".55"/><stop offset="1" stop-color="#4ADE80" stop-opacity="0"/></linearGradient></defs>
@@ -809,13 +805,13 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
             <polyline class="spark-line spark-draw" points="0,56 80,44 160,30 240,18 320,10" style="stroke:#4ADE80"/>
           </svg>
         </div>
-        <div class="tagline">700 workflow instances/sec · no backlog</div>
+        <div class="tagline">1,000 workflow instances/sec · no backlog</div>
       </div>
     </div>
 
     <div class="perf-note reveal">
       <span class="ic">◈</span>
-      <span>Measured on GCP: one server node, separate worker and load-generator VMs, Cloud SQL PostgreSQL 16. The database CPU saturates first, so a bigger database raises the ceiling; more server nodes on the same database do not. <a href="https://wiggle.sh/performance/" style="color:var(--amber)">Full methodology →</a></span>
+      <span>Measured on GCP: one server node, separate worker and load-generator VMs, Cloud SQL PostgreSQL 16. The database sets the ceiling: on 8 vCPU its CPU saturates first, on 16 vCPU waits on instance locks do. A bigger database raises it; more server nodes on the same database do not. <a href="https://wiggle.sh/performance/" style="color:var(--amber)">Full methodology →</a></span>
     </div>
   </div>
 </section>

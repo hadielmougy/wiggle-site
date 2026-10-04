@@ -198,7 +198,7 @@ spec:
   (default 24h). In our benchmarks, a database bloated with ~500k retained finished instances
   showed roughly **2× the latency** at the same load. Purge cadence is a capacity parameter,
   not housekeeping.
-- One node on a 16 vCPU Cloud SQL sustains 7,200 durable step executions/sec (900 workflow
+- One node on a 16 vCPU Cloud SQL sustains 9,600 durable step executions/sec (1,200 workflow
   instances/sec), and the database is the ceiling — [full methodology](/performance/).
 
 The console is identical to profile A (`WIGGLE_URL=wiggle:8080` — direct mode covers the whole
