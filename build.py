@@ -26,8 +26,6 @@ GITHUB = "https://github.com/hadielmougy/wiggle"
 # ---- navigation ---------------------------------------------------------------------------
 
 # (slug, title) — order defines the sidebar. Slugs are content/docs/<slug>.md.
-# Coordinator/cell pages are hidden for now: their markdown still lives in content/, and putting a
-# page back is re-adding its (slug, title) line here.
 DOCS_NAV = [
     ("index", "Overview"),
     ("onboarding", "Onboarding & configuration"),
@@ -36,6 +34,7 @@ DOCS_NAV = [
     ("error-handling", "Error handling"),
     ("queues", "Queues"),
     ("local-execution", "Local execution"),
+    ("sharding", "Sharding"),
     ("clients", "Go & Python clients"),
 ]
 
@@ -54,7 +53,7 @@ TUTORIAL_NAV = [
     ("index", "Tutorials"),
     ("embedded", "1 · Embedded server"),
     ("standalone", "2 · Standalone server"),
-    # ("coordinated", "3 · Coordinator and cells"),   # hidden: coordinator docs are on hold
+    ("sharded", "3 · Sharded server"),
 ]
 
 TOP_NAV = [  # (href, label) for the header

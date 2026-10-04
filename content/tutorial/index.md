@@ -8,10 +8,11 @@ shape is not a property of the workflow.
 |---|---|
 | **[1 · Embedded server](/tutorial/embedded/)** | you want a durable workflow inside one service, on a database you already run. One process, one `main`. |
 | **[2 · Standalone server](/tutorial/standalone/)** | the engine should be its own deployment, with your services as clients and workers around it. |
+| **[3 · Sharded server](/tutorial/sharded/)** | one database is no longer enough: spread the instances over several, with the same client code. |
 
 They are ordered by how much infrastructure they ask for, not by capability. The flow, the handlers
-and the client API are identical in all three; what changes is where the server lives and who tells
-the client which one to talk to.
+and the client API are identical in all three; what changes is where the server lives and
+how many databases sit behind it.
 
 ## The flow they all build
 
@@ -47,4 +48,4 @@ out of the way of whatever your service already uses. For the unshaded modules, 
 `sh.wiggle:wiggle-bom` and depend on `wiggle-client`.
 
 Every line of Java on these pages is compiled and run by the project's test suite — including the
-three `main` methods, each against a real server. If a page shows it, it works.
+`main` methods, each against a real server. If a page shows it, it works.

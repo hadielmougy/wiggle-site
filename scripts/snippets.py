@@ -59,7 +59,6 @@ SOURCES = {
     "tutorial-handlers": WIGGLE / "example/src/main/java/com/wiggle/tutorial/OrderHandlers.java",
     "tut-embedded": WIGGLE / "example/src/main/java/com/wiggle/tutorial/Embedded.java",
     "tut-standalone": WIGGLE / "example/src/main/java/com/wiggle/tutorial/Standalone.java",
-    "tut-coordinated": WIGGLE / "example/src/main/java/com/wiggle/tutorial/Coordinated.java",
     "cookbook-contract": FIXTURES / "CookbookContract.java",
     "saga-doc": FIXTURES / "SagaDocSnippet.java",
     "saga-doc-activity": FIXTURES / "CapturePayment.java",
@@ -70,8 +69,6 @@ SOURCES = {
     "queues": FIXTURES / "QueuesSnippet.java",
     "errors": FIXTURES / "ErrorHandlingSnippet.java",
     "local-execution": FIXTURES / "LocalExecutionSnippet.java",
-    "id-codec": WIGGLE / "placement/src/main/java/com/wiggle/placement/IdCodec.java",
-    "coordinated-connection": WIGGLE / "client/src/main/java/com/wiggle/client/CoordinatedConnection.java",
     "versioning": FIXTURES / "VersioningSnippet.java",
     "saga": FIXTURES / "SagaSnippet.java",
     "saga-handlers": FIXTURES / "BookingHandlers.java",
@@ -85,7 +82,6 @@ SOURCES = {
     "retries": FIXTURES / "RetriesSnippet.java",
     "retries-handlers": FIXTURES / "RetriesHandlers.java",
     "scheduled": FIXTURES / "ScheduledSnippet.java",
-    "cells": FIXTURES / "CellsSnippet.java",
 }
 
 MARKER = re.compile(r"^(?P<indent>[ \t]*)<!-- snippet: (?P<source>[\w-]+)/(?P<regions>[\w,-]+) -->$")
