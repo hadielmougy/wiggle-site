@@ -13,7 +13,7 @@ SRC=../wiggle/docs
 for f in onboarding versioning cookbook error-handling queues local-execution observed-execution; do
   cp "$SRC/$f.md" content/docs/
 done
-for img in architecture bench-sojourn bench-adaptive queues-flow; do
+for img in architecture bench-sojourn bench-adaptive queues-flow bench-gcp-sojourn bench-gcp-ceiling; do
   cp "$SRC/img/$img.svg" assets/img/
 done
 for img in console-instance-trace console-performance; do

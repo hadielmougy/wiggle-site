@@ -773,7 +773,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
 
     <div class="perf-grid">
       <div class="perf featured reveal reveal-d1">
-        <div class="num">7.2<span class="unit">K</span></div>
+        <div class="num">9.6<span class="unit">K</span></div>
         <div class="label">durable step executions/sec · one server node on a 16 vCPU Cloud SQL PostgreSQL</div>
         <div class="spark">
           <svg viewBox="0 0 320 64" preserveAspectRatio="none">
@@ -783,11 +783,11 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
             <circle cx="320" cy="8" r="3" fill="#F2B35D"/>
           </svg>
         </div>
-        <div class="tagline">900 workflow instances/sec · ≈3s end to end · GCP</div>
+        <div class="tagline">1,200 workflow instances/sec · ≈1–1.5s end to end · GCP</div>
       </div>
 
       <div class="perf reveal reveal-d2">
-        <div class="num">4.8<span class="unit">K</span></div>
+        <div class="num">7.2<span class="unit">K</span></div>
         <div class="label">durable step executions/sec · same node on an 8 vCPU Cloud SQL</div>
         <div class="spark">
           <svg viewBox="0 0 320 64" preserveAspectRatio="none">
@@ -796,12 +796,12 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
             <polyline class="spark-line spark-draw" points="0,52 50,50 100,46 150,42 200,38 250,32 300,26 320,22" style="stroke:#65B7FF"/>
           </svg>
         </div>
-        <div class="tagline">600 workflow instances/sec · the database sets the ceiling</div>
+        <div class="tagline">900 workflow instances/sec · the database sets the ceiling</div>
       </div>
 
       <div class="perf reveal reveal-d3">
         <div class="num">260<span class="unit">ms</span></div>
-        <div class="label">end-to-end latency, flat, at 5,600 durable step executions/sec</div>
+        <div class="label">end-to-end latency, flat, at 8,000 durable step executions/sec</div>
         <div class="spark">
           <svg viewBox="0 0 320 64" preserveAspectRatio="none">
             <defs><linearGradient id="gP3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4ADE80" stop-opacity=".55"/><stop offset="1" stop-color="#4ADE80" stop-opacity="0"/></linearGradient></defs>
@@ -809,13 +809,13 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
             <polyline class="spark-line spark-draw" points="0,56 80,44 160,30 240,18 320,10" style="stroke:#4ADE80"/>
           </svg>
         </div>
-        <div class="tagline">700 workflow instances/sec · no backlog</div>
+        <div class="tagline">1,000 workflow instances/sec · no backlog</div>
       </div>
     </div>
 
     <div class="perf-note reveal">
       <span class="ic">◈</span>
-      <span>Measured on GCP: one server node, separate worker and load-generator VMs, Cloud SQL PostgreSQL 16. The database CPU saturates first, so a bigger database raises the ceiling; more server nodes on the same database do not. <a href="https://wiggle.sh/performance/" style="color:var(--amber)">Full methodology →</a></span>
+      <span>Measured on GCP: one server node, separate worker and load-generator VMs, Cloud SQL PostgreSQL 16. The database sets the ceiling: on 8 vCPU its CPU saturates first, on 16 vCPU waits on instance locks do. A bigger database raises it; more server nodes on the same database do not. <a href="https://wiggle.sh/performance/" style="color:var(--amber)">Full methodology →</a></span>
     </div>
   </div>
 </section>
