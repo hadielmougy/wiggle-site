@@ -897,7 +897,7 @@ footer{border-top:1px solid var(--line);padding:70px 0 44px;background:rgba(0,0,
     <span class="c-kw">var</span> shipping = checked.<span class="c-fn">thenApply</span>(s::reserveStock).<span class="c-fn">thenApply</span>(s::printLabel);
 
     <span class="c-kw">return</span> Wiggle.<span class="c-fn">allOf</span>(payment, shipping)
-            .<span class="c-fn">combineWithContext</span>(s::merge)   <span class="c-com">// rejoining is always explicit</span>
+            .<span class="c-fn">combine</span>(s::merge)   <span class="c-com">// rejoining is always explicit</span>
             .<span class="c-fn">thenApply</span>(s::notify);
 });</pre>
       </div>
