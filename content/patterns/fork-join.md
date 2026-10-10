@@ -1,6 +1,6 @@
 # Parallel fork / join
 
-<div class="chips"><span>allOf</span><span>combine</span><span>@Context</span><span>RetryPolicy</span></div>
+<div class="chips"><span>allOf</span><span>combine</span><span>Step.base()</span><span>RetryPolicy</span></div>
 
 ## The problem
 
@@ -20,7 +20,7 @@ interface OrderSteps {                       // the steps, as a contract
     Order   capture(Order o);
     Order   reserveStock(Order o);
     Order   printLabel(Order o);
-    Order   merge(@Context Order base, Order payment, Order shipping);
+    Order   merge(Order payment, Order shipping);
     Order   notify(Order o);
 }
 
@@ -35,7 +35,7 @@ FlowSpec orders = FlowSpec.define("order-fulfilment", 1, Order.class, OrderSteps
                           .thenApply(s::printLabel);
 
     return Wiggle.allOf(payment, shipping)
-            .combineWithContext(s::merge)    // mandatory — there is no implicit join
+            .combine(s::merge)    // mandatory — there is no implicit join
             .thenApply(s::notify);
 });
 ```
@@ -54,11 +54,11 @@ class OrderHandlers implements OrderSteps {      // the same contract the spec n
     public Order   reserveStock(Order o) { return o.withShipmentRef(wms.reserve(o)); }
     public Order   printLabel(Order o)   { return o.withTrackingLabel(courier.label(o)); }
 
-    // One parameter per arm, in fork order: each is that branch's final context. The pre-fork
-    // base arrives via @Context (or ambiently via Step.base()). The return is the COMPLETE
+    // Parameters are found by type: every arm here produces an Order, so the two Order parameters
+    // take the arms in fork order; the pre-fork order is Step.base(). The return is the COMPLETE
     // post-join context.
-    public Order merge(@Context Order base, Order payment, Order shipping) {
-        return base.withPaymentRef(payment.paymentRef())
+    public Order merge(Order payment, Order shipping) {
+        return Step.base(Order.class).withPaymentRef(payment.paymentRef())
                    .withShipmentRef(shipping.shipmentRef())
                    .withTrackingLabel(shipping.trackingLabel());
     }

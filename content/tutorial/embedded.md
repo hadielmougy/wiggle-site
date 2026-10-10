@@ -57,7 +57,7 @@ public interface OrderSteps {
     Order   validate(Order o);
     boolean inStock(Order o);                              // a gate: false ends the flow cleanly
     Item    price(Item item);                              // the element IS the branch's context
-    Order   total(@Context Order base, List<Item> priced);  // the mandatory combine
+    Order   total(Order base, List<Item> priced);  // the mandatory combine
     Order   confirm(Order o);
 }
 ```
@@ -107,7 +107,7 @@ public class OrderHandlers implements OrderSteps {  // implementing the contract
         return new Item(item.sku(), item.price().multiply(new BigDecimal("1.20")));   // + VAT
     }
 
-    @Override public Order total(@Context Order base, List<Item> priced) {
+    @Override public Order total(Order base, List<Item> priced) {
         return base.withTotal(priced.stream().map(Item::price)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
     }
@@ -120,8 +120,7 @@ public class OrderHandlers implements OrderSteps {  // implementing the contract
 
 Binding is **by method name**: `validate` serves the step named `validate`, folded canonically, so a
 step named `in-stock` and a method `inStock` are the same thing. Use `@Handles("step-name")` when a
-method name cannot match. `@Context` must be repeated on the implementation — parameter annotations
-are not inherited, and the binder reads the method that actually runs.
+method name cannot match.
 
 ## 5. Put it together
 
