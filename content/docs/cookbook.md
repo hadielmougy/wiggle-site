@@ -1,9 +1,9 @@
 # Cookbook
 
-Eight small workflows, each pairing operators that don't otherwise appear together in the
+Nine small workflows, each pairing operators that don't otherwise appear together in the
 `order-fulfilment` example. Read the source at
 [`example/src/main/java/com/wiggle/cookbook/Cookbook.java`](../example/src/main/java/com/wiggle/cookbook/Cookbook.java)
-alongside this page; run all eight end to end with:
+alongside this page; run all nine end to end with:
 
 ```bash
 ./gradlew :example:runCookbook
@@ -83,7 +83,7 @@ FlowSpec spec = FlowSpec.define("tcb-choose-fork", 1, Purchase.class, ChooseFork
     var fraud = large.thenApply(s::fraudCheck,
             RetryPolicy.exponential(3, Duration.ofMillis(50)));
     var notice = large.thenAccept(s::managerNotice);
-    var largeArm = Wiggle.allOf(fraud, notice).combineWithContext(s::largeMerge);
+    var largeArm = Wiggle.allOf(fraud, notice).combine(s::largeMerge);
 
     var standard = f.otherwise().thenApply(s::fastPath);
 
@@ -97,9 +97,12 @@ context, so a combine is the only way their results reach the flow; the arms of 
 alternatives on the one context, so control simply continues from whichever ran. That is also why a
 choice's arms must agree on the type they end at — which one ran is not knowable until run time.
 
-`combineWithContext` is the form for a merge that also wants the pre-fork context; declare it
-`(@Context X base, …one parameter per arm)`. Arms bind **by position**, in the order given to
-`allOf`.
+A combine's parameters are found **by type**, in any order: each takes the arm whose last step
+produces its type, a `List`/`Set` takes every arm of its element type, and a parameter no arm
+matches receives the pre-fork context. Arms of the same type go to the parameters of that type in
+the order given to `allOf`, matched from the last parameter back. An extra parameter of an arm's type
+is refused when the worker starts, so with every arm a `Map` the base is read through `Step.base()`.
+A combine need not take every arm.
 
 A single guarded arm is legal here — `oneOf(f.when(g).thenApply(step))` reads as "run this if the
 guard holds, otherwise skip past it". A single-armed `allOf` is not: there is nothing to fan out.
@@ -133,6 +136,10 @@ to reference, so name the key: `thenForEach("items", Item.class, body)`.
 
 The combine's collection parameter decides how results arrive: a `List` keeps order, a `Set`
 deduplicates, a `Map` is keyed like the input.
+
+When items need different chains, prefer [recipe 9](#9-stepcreate--combine): the same fan-out built
+by a step at run time. Keep `thenForEach` when every item runs the same body and you want that body in
+the definition, where the portal shows it, and the fan-out made by the server with no step of its own.
 
 ## 4. `repeatWhile` + a gate inside the body
 
@@ -195,7 +202,7 @@ FlowSpec spec = FlowSpec.define("tcb-parent", 1, Signup.class, ParentSteps.class
     var provision = checked.thenApply(s::provision);
     var audit = checked.thenAccept(s::audit);
 
-    return Wiggle.allOf(provision, audit).combineWithContext(s::merge);
+    return Wiggle.allOf(provision, audit).combine(s::merge);
 });
 ```
 
@@ -240,7 +247,7 @@ FlowSpec spec = FlowSpec.define("tcb-kitchen-sink", 1, Basket.class, KitchenSink
     var packed = vip.thenApply(s::pack,
             RetryPolicy.fixed(2, Duration.ofMillis(20)), "packing");
     var held = vip.thenSleep("brief-hold", Duration.ofMillis(50)).thenAccept(s::notice);
-    var vipArm = Wiggle.allOf(packed, held).combineWithContext(s::priorityMerge);
+    var vipArm = Wiggle.allOf(packed, held).combine(s::priorityMerge);
 
     var standard = ready.otherwise()
             .thenForEach("pack-items", Basket::items, item -> item.thenApply(s::packItem))
@@ -257,6 +264,55 @@ Every step takes an optional `RetryPolicy` and an optional queue, in either orde
 `thenApply(s::pack, policy, "packing")` and `thenApply(s::pack, "packing", policy)` are the same
 thing.
 
+## 9. `Step.create` + `combine`
+
+Recipe 3's fan-out, built by a step at run time. A `combine` directly after a step makes that step
+one that creates branches:
+
+<!-- snippet: cookbook/dynamic-branches -->
+```java
+FlowSpec spec = FlowSpec.define("tcb-dynamic-branches", 1, Basket.class, DynamicSteps.class, (f, s) -> f
+        .thenApply(s::plan)        // creates one branch per item, below
+        .combine(s::collect));     // runs once every branch is done
+```
+
+Inside its handler, `Step.create(input)` opens a branch and chains steps onto it with the same
+operators a workflow uses. The `for` and the `if` are ordinary Java, so each item runs the chain it
+needs: a gift is priced and wrapped, anything else is only priced.
+
+<!-- snippet: cookbook/dynamic-branches-handler -->
+```java
+public Basket plan(Basket b) {
+    for (Item i : b.items()) {
+        if (i.sku().startsWith("gift")) {
+            Step.create(i).thenApply(this::price).thenApply(this::wrap);
+        } else {
+            Step.create(i).thenApply(this::price);
+        }
+    }
+    return b;   // the base the combine receives
+}
+
+public Basket collect(List<Item> priced, Basket base, List<Gift> gifts) {
+    long total = 0;
+    for (Item i : priced) total += i.price();
+    for (Gift g : gifts) total += g.price() + 50;   // wrapping is extra
+    return new Basket(base.items(), total);
+}
+```
+
+The branches are sent with the step's report, like `Step.emit`, and run once it is committed; an
+attempt that throws creates none. The handler's return is the base the combine receives. The
+combine's parameters are found by type, in any order: `List<Item>` takes the branches whose last
+step returns an `Item`, `List<Gift>` the ones that end in `wrap`, and `Basket`, which is not a
+collection, is the base. A step without its own queue or retry policy takes the creating step's.
+
+A created branch chains tasks, effects, gates and sleeps, and also waits for signals
+(`thenAwait`), runs sub-flows (`thenSubFlow`), forks (`thenAllOf(...).combine(...)`), chooses
+(`thenOneOf` with `when`/`otherwise`), loops (`repeatWhile`) and creates branches of its own
+(`Step.create(line).thenApply(this::pick).combine(this::packed)`). Use `thenForEach` (recipe 3) when
+every item runs the same body and you want it in the definition.
+
 ## Reference: what's covered where
 
 | Operator | Recipe |
@@ -265,8 +321,9 @@ thing.
 | `thenAccept` (effect, `void`) | 1, 2, 5, 8 |
 | `thenFilter` (gate, `boolean`) | 1, 4, 6, 8 |
 | `Wiggle.oneOf` + `when` / `otherwise` | 2, 5, 8 |
-| `Wiggle.allOf` + `combine` / `combineWithContext` | 2, 6, 8 |
+| `Wiggle.allOf` + `combine` | 2, 6, 8 |
 | `thenForEach` + `combine` | 3, 8 |
+| `Step.create` + `combine` (branches built at run time) | 9 |
 | `repeatWhile` | 4, 7, 8 |
 | `thenAwait` (+ timeout, + escalation) | 5, 8 |
 | `thenSubFlow` | 6, 8 |

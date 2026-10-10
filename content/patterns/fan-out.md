@@ -15,7 +15,7 @@ merge) is exactly the fragile plumbing a workflow engine should own.
 interface PricingSteps {
     Order  loadOrder(Order o);
     Priced price(LineItem line);                 // the element IS each branch's context
-    Order  collect(@Context Order base, List<Priced> priced);
+    Order  collect(Order base, List<Priced> priced);
     Order  summarise(Order o);
 }
 
@@ -44,7 +44,7 @@ class PricingHandlers implements PricingSteps {
 
     // The engine collects each item's FINAL value: List in order for a list input,
     // Map keyed like the input for a map input. You fold explicitly.
-    public Order collect(@Context Order base, List<Priced> priced) {
+    public Order collect(Order base, List<Priced> priced) {
         return base.withItems(priced)
                    .withTotal(priced.stream().map(Priced::amount)
                            .reduce(BigDecimal.ZERO, BigDecimal::add));
@@ -60,7 +60,7 @@ class PricingHandlers implements PricingSteps {
   it *maps* the element, exactly like a `map()` over a collection, except each application is a
   durable, retryable, individually-leased step.
 - **Shared state is readable, not writable.** The pre-loop context rides along ambiently
-  (`Step.base()`, or a `@Context` parameter — your signature chooses), so per-item logic can read
+  (`Step.base()`, or a combine parameter whose type no result produces), so per-item logic can read
   shared data with no possibility of racing on it.
 - **Results collect in the input's shape.** A list input yields an ordered list; a map input a
   map under the same keys. The combine then decides what actually lands in the context — no

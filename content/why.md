@@ -46,7 +46,7 @@ FlowSpec orders = FlowSpec.define("order-fulfilment", 1, Order.class, OrderSteps
                           .thenApply(s::printLabel);
 
     return Wiggle.allOf(payment, shipping)
-            .combineWithContext(s::merge)    // mandatory — there is no implicit join
+            .combine(s::merge)    // mandatory — there is no implicit join
             .thenApply(s::notify);
 });
 ```
