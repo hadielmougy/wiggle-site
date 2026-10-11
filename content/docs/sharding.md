@@ -5,8 +5,6 @@ one database, its **shard**, so its transactions never span two. Every server no
 shard, and clients never see shards. [Tutorial 3](/tutorial/sharded/) walks through a two-shard
 setup end to end.
 
-Sharding ships in the release after 0.0.9.
-
 ## Model
 
 | Term | Meaning |
