@@ -98,6 +98,96 @@ The flip side of specialization is that a queue **no** worker serves is a queue 
 `(workflow, version, queue)` and flags any slice no live poller covers. Worth a look after changing
 a `withQueues(...)` set or retiring a service.
 
+### Narrowing a queue with criteria
+
+`withQueues(...)` decides *which queues* a worker serves. `withCriteria(...)` also decides *which
+tasks on each* it claims: one `QueueCriteria` per queue, each with its own predicate built like a
+JPA Criteria query, or none to take every task on that queue:
+
+<!-- snippet: queues/criteria-worker -->
+```java
+// payments-eu: on "payments", only charges of orders keyed "eu-..."; on "refunds", everything
+QueueCriteria euCharges = QueueCriteria.from("payments")
+        .where(cb -> cb.and(
+                cb.equal(Task_.STEP, "charge"),
+                cb.like(Task_.CORRELATION_ID, "eu-%"),
+                cb.lessThan(Task_.ATTEMPT, 4)));
+QueueCriteria refunds = QueueCriteria.from("refunds");
+Worker eu = new Worker(client, "payments-eu-1",
+                WorkerOptions.defaults().withCriteria(euCharges, refunds))
+        .registerHandler(new OrderHandlers())
+        .start();
+```
+
+A predicate can test the task's workflow, version, step name, node id, kind, attempt (1 on the
+first run), the instance's correlation id, and when the instance was created. Comparisons
+combine with `and`, `or` and `not`. A comparison on a value the task doesn't have (an instance with
+no correlation id, say) is false, and `not` of it is true. Text orders by code point and `like` is
+case-sensitive, the same on every store.
+
+The server applies the predicate in the claim itself, so a worker never receives a task it would
+have to refuse. A local-execution chain hands back at the first step whose queue's criteria don't
+match it. A worker names each queue once, and sets `withQueues` or `withCriteria`, not both. Tasks that no worker's criteria match stay
+`READY`, exactly like tasks on a queue nobody serves, so check the Backlog tab after changing them.
+
+#### Routing on business data
+
+The fields above are the task's own. To route on the data an instance carries (a region, a tenant,
+an amount), the flow declares **attributes**: a name, a type, and a dotted path into the context.
+
+<!-- snippet: queues/attributes -->
+```java
+FlowSpec orders = FlowSpec.define("regional-orders", 1, RegionalOrder.class, RegionalSteps.class, (f, s) -> f
+        .attribute("region", AttrType.STRING, "customer.region")   // read from each step's context
+        .attribute("total", AttrType.DECIMAL, "total")
+        .thenApply(s::validate)
+        .thenApply(s::charge, "payments"));
+
+// payments-eu-large: EU charges of 1000 or more
+QueueCriteria euLarge = QueueCriteria.from("payments")
+        .where(cb -> cb.and(
+                cb.equal(Task_.attr("region", String.class), "eu"),
+                cb.greaterThanOrEqualTo(Task_.attr("total", java.math.BigDecimal.class),
+                        new java.math.BigDecimal("1000"))));
+Worker large = new Worker(client, "payments-eu-large-1",
+                WorkerOptions.defaults().withCriteria(euLarge))
+        .registerHandler(new RegionalHandlers())
+        .start();
+```
+
+Each time a step becomes ready, the server reads the attributes from the context that step will
+receive and stores them beside the task. The values therefore follow the data: a step that moves an
+order to another region hands the next step to the workers for that region. A path that doesn't
+resolve, or a value that doesn't fit the declared type (an object, a number under `STRING`, a
+fraction under `LONG`), leaves the attribute absent rather than failing. Types are exact: `"1000"`
+the string never equals `1000` the number, while `LONG` and `DECIMAL` compare by value. A flow
+declares at most 16 attributes, and only the declared paths are copied out of the context.
+
+What a claim costs depends on how often the predicate matches. Measured on PostgreSQL with a
+million ready tasks on one queue:
+
+- **Matches are common** (1% or more, spread through the queue): about 1 ms with task fields and
+  3 ms with attributes, at any depth. The claim walks the queue oldest-first and stops after a few
+  thousand rows at most. Wiggle's PostgreSQL connections price random reads at
+  `random_page_cost` 1.1 for this (`WIGGLE_PG_RANDOM_PAGE_COST`): at the server default of 4, a
+  common correlation-id prefix the planner judges rare makes it read and sort every ready task
+  instead, about 20 ms at 100,000.
+- **An attribute matches rarely or never**: under 1 ms when nothing matches. When only the newest
+  tasks match, the cost grows with the number of matching tasks rather than the queue depth (22 ms
+  for 10,000). The attribute value indexes let the claim start from the matching rows.
+- **A task field matches rarely or never** (a correlation id no ready task has, say): the claim
+  reads the whole queue, about 250 ms per poll at a million tasks. Routing on a value that is
+  often absent from a deep queue belongs in an attribute, not a task field.
+
+An idle worker with criteria isn't woken by tasks its criteria reject: the server checks each new
+task against the waiting workers' criteria before waking them. When its claims keep finding
+nothing, its periodic re-check backs off from 100 ms to `WIGGLE_SCOPED_FALLBACK_MAX_MILLIS` (2 s), so
+a rare task-field predicate costs about one full read of the queue every two seconds, not one per
+task produced. A matching task produced on the same server still wakes it at once; one produced on
+another server can wait up to that interval.
+
+The full contract is in [the spec](spec/25-queue-criteria.md).
+
 ---
 
 ## 4. How the server routes a step to its queue
