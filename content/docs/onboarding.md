@@ -68,7 +68,7 @@ go through the migration runner ([§7.4](#74-schema-migrations)), never by editi
 | `example` | order-fulfilment demo, standalone worker/submitter, benchmark | *(not published)* |
 | `tests` | conformance scenarios + JUnit wrapper | *(not published)* |
 
-Published under group `sh.wiggle`, version **0.0.9** (the runnable `dist` module is not
+Published under group `sh.wiggle`, version **0.0.10** (the runnable `dist` module is not
 published). The server core is database-agnostic; it builds its store from an injected
 `StorageFactory` and the backend is selected from the URL scheme ([§7.2](#72-storage-backends)).
 
@@ -119,12 +119,12 @@ and `ghcr.io/hadielmougy/wiggle` (GHCR) — the two are the same image; use whic
 
 ```bash
 # run the released image: an in-memory server (gRPC :8080, /healthz probe optional)
-docker run --rm -p 8080:8080 hadielmougy/wiggle:0.0.9            # Docker Hub
-# docker run --rm -p 8080:8080 ghcr.io/hadielmougy/wiggle:0.0.9  # …or GHCR
+docker run --rm -p 8080:8080 hadielmougy/wiggle:0.0.10            # Docker Hub
+# docker run --rm -p 8080:8080 ghcr.io/hadielmougy/wiggle:0.0.10  # …or GHCR
 
 # the same, serving the portal → http://localhost:8070
 docker run --rm -p 8080:8080 -p 8070:8070 \
-  -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:0.0.9
+  -e WIGGLE_DASHBOARD_PASSWORD=change-me hadielmougy/wiggle:0.0.10
 
 # a complete stack: server with the portal + Postgres, login, durable volume, no TLS
 docker compose -f docker-compose.full.yml up -d      # → http://localhost:8070 (admin / change-me)
@@ -399,6 +399,7 @@ variables in [§6.7](#67-example-worker--benchmark-variables) are conventions of
 | `WIGGLE_JDBC_PASSWORD` | `wiggle.jdbc.password` | *(unset)* | database password |
 | `WIGGLE_JDBC_POOL_SIZE` | `wiggle.jdbc.poolSize` | `10` | JDBC connection pool size |
 | `WIGGLE_JDBC_TX_ATTEMPTS` | `wiggle.jdbc.txAttempts` | `3` | replays for a transaction the database could not serve momentarily |
+| `WIGGLE_PG_RANDOM_PAGE_COST` | `wiggle.pg.randomPageCost` | `1.1` | PostgreSQL `random_page_cost` set on each connection; `server` keeps the server's |
 
 ### 6.3 Server — engine, cluster & housekeeping
 
