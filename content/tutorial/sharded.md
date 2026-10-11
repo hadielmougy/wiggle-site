@@ -8,12 +8,6 @@ exist.
 The flow, the handlers and the client are unchanged from **[tutorial 2](/tutorial/standalone/)**.
 Only the server's configuration changes.
 
-> **Sharding ships in the release after 0.0.9.** Until then, build the image from `main`:
->
-> ```bash
-> docker build -t wiggle:main https://github.com/hadielmougy/wiggle.git#main
-> ```
-
 ## The shape
 
 ```mermaid
@@ -77,7 +71,7 @@ docker run -d --name wiggle --network wiggle-net -p 8080:8080 \
     -v "$PWD/topology.json:/etc/wiggle/topology.json:ro" \
     -e WIGGLE_STORAGE_TOPOLOGY=/etc/wiggle/topology.json \
     -e WIGGLE_JDBC_USER=wiggle -e WIGGLE_JDBC_PASSWORD=wiggle \
-    wiggle:main
+    hadielmougy/wiggle:0.0.10
 ```
 
 `WIGGLE_STORAGE_TOPOLOGY` replaces `WIGGLE_JDBC_URL`; setting both is refused. On start the node
