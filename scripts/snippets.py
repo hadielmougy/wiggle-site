@@ -63,6 +63,7 @@ SOURCES = {
     "agents-model": WIGGLE / "example/src/main/java/com/wiggle/agents/Model.java",
     "agents-demo": WIGGLE / "example/src/main/java/com/wiggle/agents/AgentsDemo.java",
     "agents-claude": WIGGLE / "example-claude/src/main/java/com/wiggle/agents/claude/ClaudeModel.java",
+    "agents-openai": WIGGLE / "example-openai/src/main/java/com/wiggle/agents/openai/OpenAiModel.java",
     "cookbook-contract": FIXTURES / "CookbookContract.java",
     "saga-doc": FIXTURES / "SagaDocSnippet.java",
     "saga-doc-activity": FIXTURES / "CapturePayment.java",
